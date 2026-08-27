@@ -3,7 +3,6 @@
 //! (contracts/export-vsdx.md).
 
 pub mod document;
-pub mod masters;
 pub mod opc;
 pub mod page;
 pub mod verify;
@@ -16,14 +15,12 @@ use mcm_core::model::Plan;
 use crate::report::{ExportError, ExportFormat, ExportReport};
 
 use opc::{
-    Part, REL_APP, REL_CORE, REL_DOCUMENT, REL_MASTER, REL_MASTERS, REL_PAGE, REL_PAGES,
-    REL_WINDOWS, Rel, content_types, relationships, zip_package,
+    Part, REL_APP, REL_CORE, REL_DOCUMENT, REL_PAGE, REL_PAGES, REL_WINDOWS, Rel, content_types,
+    relationships, zip_package,
 };
 
 /// Content types Visio requires, verbatim from a real saved file.
 const CT_DOCUMENT: &str = "application/vnd.ms-visio.drawing.main+xml";
-const CT_MASTERS: &str = "application/vnd.ms-visio.masters+xml";
-const CT_MASTER: &str = "application/vnd.ms-visio.master+xml";
 const CT_PAGES: &str = "application/vnd.ms-visio.pages+xml";
 const CT_PAGE: &str = "application/vnd.ms-visio.page+xml";
 const CT_WINDOWS: &str = "application/vnd.ms-visio.windows+xml";
@@ -44,16 +41,6 @@ pub fn build_parts(plan: &Plan, output_path: &str) -> (Vec<Part>, ExportReport) 
             document::pages_xml(geometry.width_in, geometry.height_in),
         ),
         Part::typed("visio/pages/page1.xml", CT_PAGE, page_xml),
-        Part::typed(
-            "visio/masters/masters.xml",
-            CT_MASTERS,
-            masters::masters_xml(),
-        ),
-        Part::typed(
-            "visio/masters/master1.xml",
-            CT_MASTER,
-            masters::master1_xml(),
-        ),
         Part::typed("visio/windows.xml", CT_WINDOWS, document::windows_xml()),
         Part::typed(
             "docProps/core.xml",
@@ -76,17 +63,12 @@ pub fn build_parts(plan: &Plan, output_path: &str) -> (Vec<Part>, ExportReport) 
         "visio/_rels/document.xml.rels",
         relationships(&[
             Rel::new("rId1", REL_PAGES, "pages/pages.xml"),
-            Rel::new("rId2", REL_MASTERS, "masters/masters.xml"),
-            Rel::new("rId3", REL_WINDOWS, "windows.xml"),
+            Rel::new("rId2", REL_WINDOWS, "windows.xml"),
         ]),
     ));
     parts.push(Part::rels(
         "visio/pages/_rels/pages.xml.rels",
         relationships(&[Rel::new("rId1", REL_PAGE, "page1.xml")]),
-    ));
-    parts.push(Part::rels(
-        "visio/masters/_rels/masters.xml.rels",
-        relationships(&[Rel::new("rId1", REL_MASTER, "master1.xml")]),
     ));
 
     // Content types must list every typed part, so build it last.
@@ -190,8 +172,6 @@ mod tests {
             "visio/pages/pages.xml",
             "visio/pages/_rels/pages.xml.rels",
             "visio/pages/page1.xml",
-            "visio/masters/masters.xml",
-            "visio/masters/master1.xml",
         ] {
             assert!(names.contains(&required), "missing {required}");
         }

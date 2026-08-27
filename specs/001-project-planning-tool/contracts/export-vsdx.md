@@ -7,16 +7,29 @@
 
 ## 结构决策
 
-- **矩形任务形状不用 master**（Visio 自身即如此保存：内联 Geometry
-  RelMoveTo + 4×RelLineTo，完全可编辑）。
-- **连接器实例化单一 "Dynamic connector" master**（仓库自维护
-  `fixtures/vsdx/dynamic-connector-master.xml`，按 BaseID
-  `{F7290A45-E3AD-11D2-AE4F-006008C9F5A9}`、`MatchByName='1'`、母形状
-  `ObjType='2' GlueType='2' DynFeedback='2'` 制作），保证路由行为并与用户后画的
-  连接器合并。
-- **粘连双保险**：既写 `_WALKGLUE`/`_XFTRIGGER`/`GUARD` 公式，又写 `<Connects>`
-  行——这是 Visio 自身的字节级做法；对第三方文件 Visio 也会按 Connect 元素在打开
-  时重建粘连公式。
+> **2026-08-27 修订（实证驱动）**：初版按 research-vsdx §4 的"最佳实践"实现——
+> 连接器实例化 Dynamic connector master，并写入 `_WALKGLUE`/`GUARD` 公式。
+> 在 GroupDocs（Aspose 内核）在线查看器中实测发现：**所有连接线完全不渲染**，
+> 只剩文字标签。逐项排除后确认两个原因，本节据此改写：
+>
+> 1. `Master="2"` —— 第三方渲染器解析不了 master 引用，直接丢弃形状几何。
+>    矩形一直正常正是因为它们无 master。**这是决定性原因。**
+> 2. `_WALKGLUE`/`GUARD` —— Visio 内部函数，第三方求值得 0，`Width` 归零。
+>
+> 调研本身给了依据：对第三方文件，Visio 会**按 `<Connects>` 元素重建粘连公式**，
+> 因此纯数值 + Connects 已经足够。取舍：放弃 Visio 内的自动路由与 `MatchByName`
+> 合并（锦上添花），换取所有工具都能正确渲染（核心承诺 FR-019/020）。
+
+- **所有形状一律不用 master**（Visio 自身即以内联 Geometry 保存矩形：
+  RelMoveTo + 4×RelLineTo，完全可编辑）。连接器采用同一套写法，因为它是
+  已被实测证明能被第三方渲染器画出来的形态。
+- **所有定位单元格写纯数值，不写公式**：`PinX`/`PinY`/`Width`/`Height`/
+  `BeginX`/`BeginY`/`EndX`/`EndY` 均为可直接读取的数字。
+- **粘连由 `<Connects>` 承载**：两行 `<Connect>`（`FromPart 9/12` →
+  `ToCell='PinX' ToPart='3'`）加形状上的 `ObjType='2' GlueType='2'`，
+  Visio 打开时据此建立动态粘连。
+- **连接器包围盒不得退化**：水平或垂直线的短边补足到 `MIN_SPAN_IN`，
+  避免渲染器按零面积包围盒裁剪掉描边。
 
 ## OPC 包结构（ZIP，deflate，无目录条目，无 BOM，`[Content_Types].xml` 首条目）
 
@@ -27,7 +40,7 @@
 | `visio/document.xml` + `visio/_rels/document.xml.rels` | ✅ | 根 `VisioDocument`；含 `StyleSheet ID='0'` 链或形状不引用样式；rels → pages + masters |
 | `visio/pages/pages.xml` + `visio/pages/_rels/pages.xml.rels` | ✅ | `Page ID='0'`：`PageSheet`（`PageWidth`/`PageHeight` 英寸）+ `<Rel r:id>` 与 rels Id 一致 |
 | `visio/pages/page1.xml` | ✅ | 根 `PageContents`：`<Shapes>` + `<Connects>` |
-| `visio/masters/masters.xml` + `master1.xml` + rels | ✅（因连接器） | Dynamic connector master |
+| `visio/masters/*` | ❌ 不生成 | 见 §结构决策：master 引用会让第三方渲染器丢弃几何 |
 | `docProps/core.xml`/`app.xml`、`visio/windows.xml` | 可选 | 生成简洁存根（干净元数据） |
 
 命名空间一律 `http://schemas.microsoft.com/office/visio/2012/main`（**不得**使用
@@ -42,9 +55,9 @@ Y 轴翻转（Visio 原点在左下）；页尺寸 = 内容包围盒 + 1 英寸�
 | 模型元素 | Visio 表示 | 保真级别 |
 |----------|-----------|---------|
 | Task | `<Shape ID Type='Shape'>` 矩形（PinX/PinY/Width/Height、LocPin 居中、内联 Geometry、`<Text>` 第 1 行 = 标题） | 映射 |
-| Task.id / 日期 / 负责人 | `<Text>` 附加行：`#t3 · 2026-09-01..05 · @张三` | **降级**（文本行，Visio 可编辑；Shape Data 属性区留作后续增强） |
+| Task.id / 日期 / 负责人 | `<Text>` 附加行：`#t3 · 2026-09-01..05 · @张三`（日期同月只写收尾日，同年省年份，跨年写全） | **降级**（文本行，Visio 可编辑；Shape Data 属性区留作后续增强） |
 | Task.done | 文本行附 `✓`；形状 FillForegnd 用完成色 | **降级** |
-| Dependency | Dynamic connector 实例：Begin/End 位于两形状边界（数值）+ `_WALKGLUE` 公式 + `BegTrigger/EndTrigger = _XFTRIGGER(Sheet.<ID>!EventXFMod)` + 两行 `<Connect>`（`FromPart 9/12` → `ToCell='PinX' ToPart='3'` 动态粘连） | 映射（真实粘连，拖动跟随） |
+| Dependency | 无 master 的 1-D 形状：Begin/End 落在两形状边界（纯数值）+ `ObjType='2' GlueType='2'` + 两行 `<Connect>`（`FromPart 9/12` → `ToCell='PinX' ToPart='3'` 动态粘连） | 映射（真实粘连，拖动跟随） |
 | Milestone | 菱形形状（RelMoveTo 0.5,0 → RelLineTo 1,0.5 / 0.5,1 / 0,0.5 / 闭合），文本 = 名称 + 日期 | 映射 |
 | Milestone.linked_tasks | 同款连接器，`<Text>`="关联" | 映射 |
 | 时间线几何（甘特条） | 不导出为时间轴图（日期在文本行中保留） | **降级**（摘要说明） |
@@ -67,6 +80,17 @@ Y 轴翻转（Visio 原点在左下）；页尺寸 = 内容包围盒 + 1 英寸�
    即失败。
 7. 输出前内部自检：重解包 + XML 良构校验 + ID/rel/Connect 引用闭合检查，失败即
    导出失败，不落半成品。
+
+## 渲染回归（新增，源自真实缺陷）
+
+以下断言直接对应上面那次实测失败，必须长期保留：
+
+- `page1.xml` 中不得出现 `_WALKGLUE`/`_XFTRIGGER`/`GUARD(`
+- 定位单元格（Pin/Width/Height/Begin/End）不得带 `F="..."`
+- 任何形状不得带 `Master=` 属性
+- 每条连接线的 `|Begin→End|` 长度必须 > 0.1 英寸（零长即不可见）
+- 连接线包围盒与端点一致，且两轴均非零
+- 2-D 形状两两不重叠（里程碑曾压住首个任务）
 
 ## 契约测试（`mcm-export` 集成测试，合入门槛）
 

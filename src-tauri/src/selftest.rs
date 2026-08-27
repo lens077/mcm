@@ -200,8 +200,11 @@ fn scenario_export_vsdx(ctx: &mut Context) -> Result<(), String> {
         .map_err(|error| format!("缺少 page1.xml：{error}"))?
         .read_to_string(&mut page)
         .map_err(|error| format!("page1.xml 不可读：{error}"))?;
-    check(page.contains("_WALKGLUE("), "连接器应带粘连公式")?;
-    check(page.contains("ToPart=\"3\""), "应写出动态粘连 Connect 行")
+    check(page.contains("ToPart=\"3\""), "应写出动态粘连 Connect 行")?;
+    // Geometry must be readable without evaluating Visio-internal functions,
+    // otherwise third-party viewers draw nothing.
+    check(!page.contains("_WALKGLUE"), "不应写入 Visio 内部函数")?;
+    check(!page.contains("Master="), "形状不应依赖 master")
 }
 
 /// Scenario 11: closing with unsaved changes is flagged.

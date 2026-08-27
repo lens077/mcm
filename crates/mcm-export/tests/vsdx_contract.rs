@@ -92,6 +92,22 @@ fn attributes_of(xml: &str, element: &str, attribute: &str) -> Vec<String> {
     values
 }
 
+/// Reads every numeric `V` value for a named cell, in document order.
+fn numeric_cells(xml: &str, name: &str) -> Vec<f64> {
+    let needle = format!("<Cell N=\"{name}\" V=\"");
+    let mut values = Vec::new();
+    let mut cursor = 0usize;
+    while let Some(found) = xml[cursor..].find(&needle) {
+        let start = cursor + found + needle.len();
+        let end = xml[start..].find('"').unwrap_or(0) + start;
+        if let Ok(value) = xml[start..end].parse::<f64>() {
+            values.push(value);
+        }
+        cursor = end;
+    }
+    values
+}
+
 const SAMPLE: &str = "%mcm 1
 %title Visio 契约 🌍
 
@@ -115,8 +131,6 @@ fn package_contains_every_required_part() {
         "visio/pages/pages.xml",
         "visio/pages/_rels/pages.xml.rels",
         "visio/pages/page1.xml",
-        "visio/masters/masters.xml",
-        "visio/masters/master1.xml",
     ] {
         assert!(package.parts.contains_key(required), "missing {required}");
     }
@@ -155,10 +169,9 @@ fn the_relationship_chain_is_closed() {
 
     // package → document
     assert!(package.part("_rels/.rels").contains("visio/document.xml"));
-    // document → pages, masters
+    // document → pages
     let document_rels = package.part("visio/_rels/document.xml.rels");
     assert!(document_rels.contains("pages/pages.xml"));
-    assert!(document_rels.contains("masters/masters.xml"));
     // pages → page1, and the page's Rel id matches
     let pages_rels = package.part("visio/pages/_rels/pages.xml.rels");
     assert!(pages_rels.contains("page1.xml"));
@@ -167,11 +180,11 @@ fn the_relationship_chain_is_closed() {
     for id in &rel_ids {
         assert!(declared.contains(id), "page Rel {id} not declared");
     }
-    // masters → master1
+    // No masters part: every shape is masterless, so third-party renderers can
+    // draw it without resolving a stencil reference.
     assert!(
-        package
-            .part("visio/masters/_rels/masters.xml.rels")
-            .contains("master1.xml")
+        !package.parts.keys().any(|name| name.contains("masters")),
+        "master parts are dead weight now that no shape references one"
     );
 }
 
@@ -217,19 +230,114 @@ fn each_dependency_has_exactly_two_connect_rows_with_valid_endpoints() {
 }
 
 #[test]
-fn glue_uses_the_dynamic_walking_parts() {
+fn glue_rides_on_connect_rows() {
     let scratch = Scratch::new("glue");
     let (_, _, package) = export_to(&scratch, "plan.vsdx", &parse(SAMPLE).plan);
     let page = package.part("visio/pages/page1.xml");
 
-    // FromPart 9/12 = begin/end point, ToPart 3 = whole shape.
+    // FromPart 9/12 = begin/end point, ToPart 3 = whole shape. This is what
+    // Visio uses to re-establish glue for an untrusted file, and it is the
+    // whole mechanism now that formulas are gone.
     assert!(page.contains("FromCell=\"BeginX\" FromPart=\"9\""));
     assert!(page.contains("FromCell=\"EndX\" FromPart=\"12\""));
     assert!(page.contains("ToCell=\"PinX\" ToPart=\"3\""));
-    // Belt and braces: the formulas Visio itself writes.
-    assert!(page.contains("_WALKGLUE("));
-    assert!(page.contains("_XFTRIGGER(Sheet."));
-    assert!(page.contains("GUARD(EndX-BeginX)"));
+    // 1-D + walking glue is what makes a shape connectable at all.
+    assert!(page.contains("N=\"ObjType\" V=\"2\""));
+    assert!(page.contains("N=\"GlueType\" V=\"2\""));
+}
+
+#[test]
+fn geometry_is_readable_without_evaluating_visio_functions() {
+    // Regression from a real rendering failure: `_WALKGLUE`/`GUARD` are Visio
+    // internals. A third-party renderer evaluates them to zero, so every
+    // connector collapsed to a point and only its text label showed up.
+    let scratch = Scratch::new("no-formulas");
+    let (_, _, package) = export_to(&scratch, "plan.vsdx", &parse(SAMPLE).plan);
+    let page = package.part("visio/pages/page1.xml");
+
+    assert!(
+        !page.contains("_WALKGLUE"),
+        "internal functions break other tools"
+    );
+    assert!(
+        !page.contains("_XFTRIGGER"),
+        "internal functions break other tools"
+    );
+    assert!(!page.contains("GUARD("), "GUARD hides the numeric value");
+
+    for cell in [
+        "BeginX", "BeginY", "EndX", "EndY", "Width", "Height", "PinX", "PinY",
+    ] {
+        let needle = format!("<Cell N=\"{cell}\" V=\"");
+        for fragment in page.split(&needle).skip(1) {
+            let tag_end = fragment.find("/>").unwrap_or(fragment.len());
+            assert!(
+                !fragment[..tag_end].contains("F=\""),
+                "{cell} must stay a plain number"
+            );
+        }
+    }
+}
+
+#[test]
+fn every_connector_spans_a_real_distance() {
+    // Guards the exact symptom: a connector whose width does not match its
+    // endpoints renders as an invisible zero-length line.
+    let scratch = Scratch::new("spans");
+    let plan = parse(SAMPLE).plan;
+    let (_, _, package) = export_to(&scratch, "plan.vsdx", &plan);
+    let page = package.part("visio/pages/page1.xml");
+
+    let begin_x = numeric_cells(page, "BeginX");
+    let begin_y = numeric_cells(page, "BeginY");
+    let end_x = numeric_cells(page, "EndX");
+    let end_y = numeric_cells(page, "EndY");
+
+    let connector_count = plan.dependencies.len()
+        + plan
+            .milestones
+            .iter()
+            .map(|m| m.linked_tasks.len())
+            .sum::<usize>();
+    assert_eq!(begin_x.len(), connector_count);
+
+    for index in 0..begin_x.len() {
+        let length = (end_x[index] - begin_x[index]).hypot(end_y[index] - begin_y[index]);
+        assert!(
+            length > 0.1,
+            "connector {index} is only {length} in long — it would be invisible"
+        );
+    }
+}
+
+#[test]
+fn shapes_do_not_overlap_each_other() {
+    // The milestone diamond used to be pinned at a fixed spot and covered the
+    // first task box.
+    let scratch = Scratch::new("overlap");
+    let plan = parse(SAMPLE).plan;
+    let (_, _, package) = export_to(&scratch, "plan.vsdx", &plan);
+    let page = package.part("visio/pages/page1.xml");
+
+    let shape_count = plan
+        .tasks
+        .iter()
+        .filter(|t| t.parent.is_some() || true)
+        .count();
+    let pin_x = numeric_cells(page, "PinX");
+    let pin_y = numeric_cells(page, "PinY");
+    let widths = numeric_cells(page, "Width");
+    let heights = numeric_cells(page, "Height");
+    // Only the leading entries are 2-D shapes; connectors follow.
+    let count = pin_x.len().min(shape_count + plan.milestones.len());
+
+    for a in 0..count {
+        for b in (a + 1)..count {
+            let overlap_x = (pin_x[a] - pin_x[b]).abs() < (widths[a] + widths[b]) / 2.0;
+            let overlap_y = (pin_y[a] - pin_y[b]).abs() < (heights[a] + heights[b]) / 2.0;
+            assert!(!(overlap_x && overlap_y), "shapes {a} and {b} overlap");
+        }
+    }
 }
 
 #[test]

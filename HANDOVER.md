@@ -95,9 +95,9 @@ Rust 核心 → 重校验 → 返回 `ApplyResult`（含 `scene_stale`）→ 前
 
 - **XMind**：ZIP（STORE 不压缩）+ `content.json`/`metadata.json`/`manifest.json`。
   依赖映射为**真实的 relationship 连线**，不是降级成文本。
-- **Visio**：OPC 包 + XML。任务是**无 master 矩形**（Visio 自己就这么存），
-  连接器实例化一个 Dynamic connector master。粘连用**双保险**：
-  `_WALKGLUE`/`_XFTRIGGER` 公式 **加** `<Connects>` 行——这是 Visio 的字节级做法。
+- **Visio**：OPC 包 + XML。**所有形状都不用 master**，全部内联 Geometry；
+  定位单元格一律写纯数值（不写公式）；粘连靠 `<Connects>` 行承载。
+  这套写法是实测倒逼出来的，见下方"踩过的坑"。
 
 两个导出器都在**落盘前自检**：打包 → 重新解包 → 校验结构与引用闭合 → 才写文件。
 失败就整个导出失败，绝不落半成品。
@@ -130,6 +130,32 @@ cargo run --release -p mcm-app -- --selftest    # 9 个端到端场景
 4. 5000 任务校验 257ms 超预算 → 引入 `PlanIndex` 消除 O(n²)，降到 19ms
 
 每个都补了回归测试。**加新功能时请保持这个习惯**：先让属性测试跑起来，它比你想得到的边界多。
+
+### 踩过的坑：VSDX 连接线完全不渲染
+
+值得单独记一笔，因为它暴露了一类测试盲区。
+
+初版严格照着调研的"最佳实践"实现：连接器实例化 Dynamic connector master，
+写入 `_WALKGLUE`/`_XFTRIGGER`/`GUARD` 公式。契约测试**断言这些公式必须存在**，
+全绿。但导出物在真实查看器里打开——**所有连接线消失**，只剩「依赖」「关联」文字。
+
+两个原因：
+
+1. `Master="2"`：第三方渲染器解析不了 master 引用，直接丢弃形状几何。
+   矩形一直正常，正是因为它们无 master。**这是决定性原因。**
+2. `_WALKGLUE`/`GUARD` 是 Visio 内部函数，第三方求值得 0 → `Width=0` → 线塌缩成点。
+
+教训：**「结构合法」不等于「能被画出来」**。所有结构断言都通过了，因为它们检查的是
+XML 形状，而不是可渲染性。现在补了一组渲染回归断言（无 master、无公式、
+线长 > 0.1in、包围盒非退化、形状不重叠），并把「向已被证明能渲染的矩形靠拢」
+作为连接线的设计原则。
+
+复现验证方式（macOS 无 Visio 时）：
+
+```bash
+npm install playwright && npx playwright install chromium
+# 用 Playwright 驱动 https://products.groupdocs.app/viewer/vsdx 上传并截图
+```
 
 ### 双平台冒烟的特殊安排
 
@@ -172,12 +198,14 @@ cargo run -p mcm-core --bin gen_fixture -- 1000 fixtures/perf/plan-1000.mcm
 
 ### 6.1 两种导出的真实互操作性（最高优先级）
 
-自动化测试验证了：包结构、JSON schema、XML 良构、引用闭合、ID 唯一、
-降级完备，VSDX 还通过 `libvisio-rs` 做了第三方读回。
+**已验证**：VSDX 在 GroupDocs（Aspose 内核）在线查看器中渲染正确——4 个任务矩形、
+3 条依赖箭头、1 条里程碑关联箭头、菱形里程碑、完成态填充，全部到位，无重叠。
+XMind 已由项目所有者在真实 XMind 中确认可用。
 
-**但「在 XMind / Visio 里打开并继续编辑」没有人验证过。** 尤其是 Visio 的
-「拖动形状连线跟随」——粘连实现是按调研的实证结构写的，逻辑上正确，
-但没有 Visio 环境实测。
+**仍未验证**：
+- **Visio 桌面版**：能否无修复提示打开、**拖动形状时连线是否跟随**。
+  第三方渲染器只证明了几何正确，粘连行为要 Visio 本体才能确认。
+- 在 XMind / Visio 中**编辑后再保存**是否无损。
 
 → 请按 `specs/001-project-planning-tool/release-checklist.md` 第 1、2 节逐项走。
 发现问题时：**先补一个能复现的测试，再修**。
