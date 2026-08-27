@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   test:
     strategy:
@@ -19,24 +22,37 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
         with: { components: clippy,rustfmt }
+      - uses: Swatinem/rust-cache@v2
+        with: { key: ${{ matrix.os }} }
+
       - run: pnpm install --frozen-lockfile
+
+      # `tauri::generate_context!` embeds the frontend bundle at compile time,
+      # so `dist/` must exist before ANY cargo command that builds mcm-app.
+      # It is gitignored, which is why a clean checkout needs this first.
+      - name: Build frontend (required by the Tauri context macro)
+        run: pnpm build
+
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+
       # Performance budgets are a merge gate (宪法 II): the bench panics when a
       # budget in plan.md §Performance Goals regresses.
       - run: cargo bench -p mcm-core
+
       - run: pnpm lint
       - run: pnpm test
-      # Both platforms run the same scenario checklist: WebDriver on Windows,
-      # the scripted harness on macOS (research.md R8).
-      - if: runner.os == 'macOS'
-        run: pnpm smoke:mac
-      - if: runner.os == 'Windows'
-        run: cargo install tauri-driver --locked
-      - if: runner.os == 'Windows'
-        run: pnpm e2e:win
+
+      # The scripted scenario harness runs on both platforms, so the shared
+      # checklist (quickstart.md §端到端验证场景) really is a dual-platform gate.
+      # The WebDriver UI suite lives in e2e-windows.yml until it is validated
+      # against a real Windows machine (see HANDOVER.md §6.2).
+      - name: Scenario smoke (shared checklist)
+        run: pnpm smoke
+
       - run: pnpm tauri build
+
       # Installer size is a merge gate (plan.md §Constraints ≤ 25MB).
       - run: pnpm check:bundle
       - run: node scripts/measure-startup.mjs

@@ -11,10 +11,10 @@
     "format:check": "prettier --check .",
     "tauri": "tauri",
     "e2e:win": "wdio run tests/e2e/wdio.conf.ts",
-    "smoke:mac": "cargo run --release -p mcm-app -- --selftest",
     "measure:startup": "node scripts/measure-startup.mjs",
     "check:bundle": "node scripts/check-bundle-size.mjs",
-    "build:mac-universal": "tauri build --target universal-apple-darwin"
+    "build:mac-universal": "tauri build --target universal-apple-darwin",
+    "smoke": "cargo run --release -p mcm-app -- --selftest"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

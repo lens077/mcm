@@ -107,11 +107,18 @@ Rust 核心 → 重校验 → 返回 `ApplyResult`（含 `scene_stale`）→ 前
 ## 4. 测试策略：为什么是这样分层的
 
 ```bash
-cargo test --workspace     # 409 个
+pnpm build                 # ⚠️ 必须先跑：Tauri 的 generate_context! 宏在编译期
+                           #    嵌入前端产物，dist/ 不存在会直接编译失败
+cargo test --workspace     # 415 个
 pnpm test                  # 76 个
 cargo bench -p mcm-core    # 7 项性能预算（超预算即 panic）
-cargo run --release -p mcm-app -- --selftest    # 9 个端到端场景
+pnpm smoke                 # 9 个端到端场景（双平台通用）
 ```
+
+**踩坑提醒**：`dist/` 被 gitignore，本地通常已存在所以感觉不到；干净检出（CI）
+若在 `pnpm build` 之前执行任何 cargo 命令，都会以
+`The frontendDist configuration is set to "../dist" but this path doesn't exist`
+失败。CI 的步骤顺序已固定，本地复现用 `rm -rf dist` 即可。
 
 四类测试各有分工：
 
@@ -157,14 +164,18 @@ npm install playwright && npx playwright install chromium
 # 用 Playwright 驱动 https://products.groupdocs.app/viewer/vsdx 上传并截图
 ```
 
-### 双平台冒烟的特殊安排
+### 双平台冒烟的安排
 
-`tauri-driver` 不支持 macOS。所以同一份场景清单跑两条路：
+`pnpm smoke`（`--selftest`）是纯 Rust、与平台无关，因此 **CI 在 macOS 与
+Windows 上都跑它**——同一批场景 ID（S1/S3/S5/S6/S7/S8/S9/S11）构成真正的
+双平台门槛。
 
-- **Windows**：`pnpm e2e:win`（WebDriver，走真实 UI）
-- **macOS**：`pnpm smoke:mac`（`--selftest`，走真实核心）
+`tauri-driver` 不支持 macOS，所以 WebDriver UI 套件只能在 Windows 上跑。它
+**尚未在真实 Windows 机器上验证过**，放进主 CI 只会让分支长期飘红，因此挪到了
+独立的手动工作流 `.github/workflows/e2e-windows.yml`（`workflow_dispatch`
+触发，wdio 依赖按需安装，不污染主依赖树）。
 
-两边覆盖同一批场景 ID（S1/S3/S5/S6/S7/S8/S9/S11），CI 各跑各的。
+跑绿之后再把它提升进 `ci.yml`，步骤见该工作流顶部注释。
 
 ---
 
@@ -214,14 +225,15 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
 本次开发全程在 macOS。以下从未在 Windows 上执行过：
 
-- `pnpm e2e:win`（WebDriver 套件已写好但从未运行，首次跑很可能需要调整选择器）
-- `pnpm tauri build` 的 Windows 产物
-- CI 矩阵的 windows-latest 分支
+- WebDriver 套件（`.github/workflows/e2e-windows.yml`，手动触发）：已写好但
+  从未运行，wdio 依赖也未进主依赖树；首次跑很可能需要调整选择器与超时
+- `pnpm tauri build` 的 Windows 产物与 `.msi` 体积
 
 ### 6.3 CI
 
-`.github/workflows/ci.yml` 已配置完整，但**从未在 GitHub Actions 上实际运行过**
-（本地仓库刚建）。首次 push 后请关注运行结果。
+首次运行即暴露了一个真实缺陷（cargo 在 `pnpm build` 之前跑，`dist/` 不存在导致
+编译失败），已修复：步骤顺序固定，且加了 `Swatinem/rust-cache` 缩短构建时间。
+Windows 分支的完整绿灯仍需关注。
 
 ### 6.4 项目名
 

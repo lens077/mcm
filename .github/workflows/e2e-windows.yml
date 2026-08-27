@@ -1,0 +1,62 @@
+# Windows WebDriver smoke suite — NOT yet part of the merge gate.
+#
+# The specs in tests/e2e/ have never run against a real Windows machine, so
+# their selectors and timings are unproven. Running them in `ci.yml` would keep
+# the branch permanently red for a reason unrelated to the code under test.
+#
+# The dual-platform gate is still honoured: `ci.yml` runs the same scenario
+# checklist through `pnpm smoke` on BOTH macOS and Windows. This workflow adds
+# the UI layer on top, and is meant to be run by hand while stabilising it.
+#
+# To promote it into `ci.yml`: get a green run here, move the wdio packages into
+# devDependencies, then add the step back to the matrix job.
+
+name: e2e-windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  webdriver:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.22.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { key: e2e-windows }
+
+      - run: pnpm install --frozen-lockfile
+
+      # Installed on the fly so the main dependency tree stays lean.
+      - name: Install WebDriver tooling
+        run: >
+          pnpm add -D --ignore-scripts
+          @wdio/cli@9
+          @wdio/local-runner@9
+          @wdio/mocha-framework@9
+          @wdio/spec-reporter@9
+          ts-node@10
+          typescript@5
+
+      - run: cargo install tauri-driver --locked
+
+      # The suite builds the release binary itself, but the context macro still
+      # needs the frontend bundle on disk first.
+      - run: pnpm build
+
+      - name: WebDriver smoke
+        run: pnpm exec wdio run tests/e2e/wdio.conf.ts
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wdio-logs
+          path: |
+            logs/
+            *.log
+          if-no-files-found: ignore
