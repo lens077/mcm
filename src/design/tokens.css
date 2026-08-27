@@ -1,0 +1,95 @@
+:root {
+  color-scheme: light;
+  --font-display: "Avenir Next", "Futura", sans-serif;
+  --font-body: "Source Han Sans SC", "PingFang SC", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", monospace;
+  --canvas: #f3efe4;
+  --surface: #fffdf7;
+  --surface-raised: #ffffff;
+  --ink: #18211d;
+  --ink-muted: #657068;
+  --line: #c8c9bb;
+  --accent: #d84f35;
+  --accent-strong: #a92f20;
+  --signal: #16715c;
+  --warning: #a86614;
+  --danger: #b42a2a;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --shadow-panel: 0 18px 60px rgb(29 38 32 / 12%);
+  --motion-fast: 140ms;
+  --motion-slow: 420ms;
+
+  /* Scene style roles: one token per role so the renderer never hard-codes a
+     color and both themes stay in sync (宪法 III). */
+  --role-task-fill: #ffffff;
+  --role-task-stroke: #c8c9bb;
+  --role-task-text: #18211d;
+  --role-task-done-fill: #dff0e6;
+  --role-task-done-stroke: #16715c;
+  --role-task-error-fill: #fbe3e0;
+  --role-task-error-stroke: #b42a2a;
+  --role-task-warning-fill: #fbf0d9;
+  --role-task-warning-stroke: #a86614;
+  --role-milestone-fill: #fde4dd;
+  --role-milestone-stroke: #d84f35;
+  --role-hierarchy-edge: #b9bcac;
+  --role-dependency-edge: #d84f35;
+  --role-milestone-edge: #16715c;
+  --role-selected-stroke: #18211d;
+  --role-selected-glow: rgb(216 79 53 / 28%);
+  --badge-error: #b42a2a;
+  --badge-warning: #a86614;
+  --badge-done: #16715c;
+  --badge-milestone: #d84f35;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #151a17;
+  --surface: #1c231f;
+  --surface-raised: #242d28;
+  --ink: #edf1e9;
+  --ink-muted: #9eaaa2;
+  --line: #3d4942;
+  --accent: #ff795d;
+  --accent-strong: #ff9a82;
+  --signal: #55c7a6;
+  --warning: #efb454;
+  --danger: #ff7373;
+  --shadow-panel: 0 18px 60px rgb(0 0 0 / 35%);
+
+  --role-task-fill: #242d28;
+  --role-task-stroke: #3d4942;
+  --role-task-text: #edf1e9;
+  --role-task-done-fill: #1d3830;
+  --role-task-done-stroke: #55c7a6;
+  --role-task-error-fill: #3a1f1f;
+  --role-task-error-stroke: #ff7373;
+  --role-task-warning-fill: #3a2f19;
+  --role-task-warning-stroke: #efb454;
+  --role-milestone-fill: #3d2419;
+  --role-milestone-stroke: #ff795d;
+  --role-hierarchy-edge: #4a564e;
+  --role-dependency-edge: #ff795d;
+  --role-milestone-edge: #55c7a6;
+  --role-selected-stroke: #edf1e9;
+  --role-selected-glow: rgb(255 121 93 / 34%);
+  --badge-error: #ff7373;
+  --badge-warning: #efb454;
+  --badge-done: #55c7a6;
+  --badge-milestone: #ff795d;
+}
+
+:root[data-reduce-motion="true"] {
+  --motion-fast: 0ms;
+  --motion-slow: 0ms;
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XMind content.json",
+  "description": "Structure XMind 2020-2026 accepts, per research-xmind.md §2.",
+  "type": "array",
+  "minItems": 1,
+  "items": { "$ref": "#/$defs/sheet" },
+  "$defs": {
+    "sheet": {
+      "type": "object",
+      "required": ["id", "class", "title", "rootTopic"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "class": { "const": "sheet" },
+        "title": { "type": "string" },
+        "rootTopic": { "$ref": "#/$defs/topic" },
+        "relationships": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relationship" }
+        }
+      }
+    },
+    "topic": {
+      "type": "object",
+      "required": ["id", "class", "title"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "class": { "const": "topic" },
+        "title": { "type": "string" },
+        "notes": { "$ref": "#/$defs/notes" },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "markers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["markerId"],
+            "properties": { "markerId": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "children": {
+          "type": "object",
+          "properties": {
+            "attached": { "type": "array", "items": { "$ref": "#/$defs/topic" } }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "object",
+      "properties": {
+        "plain": {
+          "type": "object",
+          "required": ["content"],
+          "properties": { "content": { "type": "string" } }
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "required": ["id", "class", "end1Id", "end2Id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "class": { "const": "relationship" },
+        "end1Id": { "type": "string", "minLength": 1 },
+        "end2Id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.22.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy,rustfmt }
+      - run: pnpm install --frozen-lockfile
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      # Performance budgets are a merge gate (宪法 II): the bench panics when a
+      # budget in plan.md §Performance Goals regresses.
+      - run: cargo bench -p mcm-core
+      - run: pnpm lint
+      - run: pnpm test
+      # Both platforms run the same scenario checklist: WebDriver on Windows,
+      # the scripted harness on macOS (research.md R8).
+      - if: runner.os == 'macOS'
+        run: pnpm smoke:mac
+      - if: runner.os == 'Windows'
+        run: cargo install tauri-driver --locked
+      - if: runner.os == 'Windows'
+        run: pnpm e2e:win
+      - run: pnpm tauri build
+      # Installer size is a merge gate (plan.md §Constraints ≤ 25MB).
+      - run: pnpm check:bundle
+      - run: node scripts/measure-startup.mjs

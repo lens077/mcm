@@ -1,0 +1,20 @@
+[package]
+name = "mcm-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+criterion = { version = "0.7.0", default-features = false, features = ["cargo_bench_support"] }
+proptest = "1.7.0"
+serde_json.workspace = true
+
+[[bench]]
+name = "core_budgets"
+harness = false

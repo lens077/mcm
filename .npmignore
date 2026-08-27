@@ -1,0 +1,10 @@
+src/
+src-tauri/
+crates/
+specs/
+tests/
+.github/
+target/
+coverage/
+*.log
+.env*
