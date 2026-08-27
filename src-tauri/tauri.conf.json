@@ -37,7 +37,7 @@
     ],
     "category": "Productivity",
     "shortDescription": "项目规划桌面工具",
-    "longDescription": "结构化大纲录入、确定性校验，以及可继续编辑的 XMind 与 Visio 导出。",
+    "longDescription": "结构化大纲录入、确定性校验，四种联动视图；导出为 XMind 与 Visio 中可继续编辑的文件，而非位图。",
     "copyright": "MIT",
     "macOS": {
       "minimumSystemVersion": "10.15"
