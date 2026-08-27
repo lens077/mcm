@@ -15,6 +15,15 @@ const bundleRoot = path.join(projectRoot, "target", "release", "bundle");
 /** Installer extensions worth measuring, per platform. */
 const INSTALLER_EXTENSIONS = new Set([".dmg", ".app", ".msi", ".exe", ".deb", ".AppImage"]);
 
+/**
+ * Work files that are not deliverables. `bundle_dmg.sh` builds a read-write
+ * image named `rw.<pid>.<name>.dmg` and deletes it on success — but it leaks
+ * one whenever it exits early, which then looked like a 36MB "installer".
+ */
+function isIntermediate(name) {
+  return /^rw\.\d+\./.test(name);
+}
+
 function* walk(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -26,7 +35,7 @@ function* walk(dir) {
         continue;
       }
       yield* walk(full);
-    } else if (INSTALLER_EXTENSIONS.has(path.extname(entry.name))) {
+    } else if (INSTALLER_EXTENSIONS.has(path.extname(entry.name)) && !isIntermediate(entry.name)) {
       yield full;
     }
   }

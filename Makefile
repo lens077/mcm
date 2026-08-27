@@ -72,7 +72,7 @@ $(DIST_ENTRY): node_modules $(FRONTEND_SRC) $(FRONTEND_CONF)
 build: $(DIST_ENTRY) ## 构建前端产物（cargo 编译 mcm-app 的前置条件）
 
 bundle: $(DIST_ENTRY) ## 打包本平台安装包（macOS: .app/.dmg，Windows: .msi）
-	pnpm tauri build
+	pnpm bundle
 
 build-universal: $(DIST_ENTRY) ## 打包 macOS 双架构安装包
 	pnpm build:mac-universal

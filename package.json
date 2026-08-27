@@ -13,9 +13,10 @@
     "e2e:win": "wdio run tests/e2e/wdio.conf.ts",
     "measure:startup": "node scripts/measure-startup.mjs",
     "check:bundle": "node scripts/check-bundle-size.mjs",
-    "build:mac-universal": "tauri build --target universal-apple-darwin",
+    "build:mac-universal": "node scripts/bundle.mjs --target universal-apple-darwin",
     "smoke": "cargo run --release -p mcm-app -- --selftest",
-    "lint:ci": "actionlint"
+    "lint:ci": "actionlint",
+    "bundle": "node scripts/bundle.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
