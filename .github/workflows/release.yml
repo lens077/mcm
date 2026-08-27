@@ -60,8 +60,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           version=$(node scripts/bump-version.mjs "${{ inputs.bump || 'patch' }}")
-          # 工作区成员版本变了，让 cargo 自己刷新 lock 而不是正则替换
-          cargo update -w --offline
+          # 工作区成员版本变了，让 cargo 自己刷新 lock 而不是正则替换。
+          # 不能加 --offline：CI 是干净环境、没有 registry 缓存，会以
+          # "no matching package named `chrono` found" 失败。
+          # -w 只改工作区成员版本，不会顺带升级第三方依赖。
+          cargo update -w
 
           git add Cargo.toml Cargo.lock src-tauri/tauri.conf.json
           git commit -m "chore(release): v${version} [skip ci]"
