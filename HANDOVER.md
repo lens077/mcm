@@ -249,11 +249,32 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
    含表达式或逗号的 `with` 一律用块式写法。**改工作流后先跑 `actionlint`**——
    上面第 3 类问题它能直接指出来，不必靠 CI 往返。
 
-   **Action 版本**：GitHub 已弃用 Node 20 运行时，所有 action 都升到了
-   node24 的版本。升级时**逐个核对 `action.yml` 的 `runs.using`**，别按主版本
-   号想当然——`actions/upload-artifact@v5` 仍是 node20，必须用 v6。
-   `pnpm/action-setup` 必须 ≥ v6：v6 才是第一个支持 pnpm v11 的版本。
+   **Action 版本**：GitHub 已弃用 Node 20 运行时。当前全部固定在各自最新主版本，
+   运行时均为 node24：
+
+   | Action | 版本 | 备注 |
+   |---|---|---|
+   | `actions/checkout` | v7 | |
+   | `actions/setup-node` | v7 | |
+   | `actions/upload-artifact` | v7 | |
+   | `pnpm/action-setup` | v6 | v6 才开始支持 pnpm v11 |
+   | `Swatinem/rust-cache` | v2 | v2 即最新主版本 |
+   | `dtolnay/rust-toolchain` | @stable | composite，不涉及 Node 运行时 |
+
+   升级时**逐个核对 `action.yml` 的 `runs.using`**，别按主版本号想当然：
+   `actions/upload-artifact@v5` 就仍然是 node20，比它老的 v4 反而不是问题所在。
+   一条可直接复用的核对命令见下。
+
+   ```bash
+   gh api repos/<owner>/<repo>/contents/action.yml?ref=<tag> -q '.content' \
+     | base64 -d | grep -E "^\s*using:"
+   ```
+
    pnpm 版本由 `package.json` 的 `packageManager` 字段单一决定，CI 不再重复声明。
+
+   `pnpm/action-setup` 有继任者 [`pnpm/setup`](https://github.com/pnpm/setup)
+   （面向 pnpm v11+，可同时安装 JS 运行时从而替代 `actions/setup-node`）。
+   那是结构性改动，尚未采用。
 4. **Windows 换行**：Git 在 Windows 检出时把 `.mcm` fixture 重写成 CRLF，
    golden 测试拿原始字节比对 LF 输出，断言失败。产品本身没问题
    （`str::lines` 已剥掉行尾 `\r`，词法层还再剥一次）。修法是
