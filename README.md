@@ -19,9 +19,18 @@
 ## 快速开始
 
 ```bash
+make install    # 安装依赖
+make dev        # 启动桌面应用
+```
+
+没装 `make`（例如 Windows）时用等价的 pnpm 命令：
+
+```bash
 pnpm install
 pnpm tauri dev
 ```
+
+运行 `make` 查看全部命令。提交前跑 `make gate`。
 
 在左侧粘贴：
 

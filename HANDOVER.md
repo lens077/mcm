@@ -26,12 +26,31 @@
 ## 2. 五分钟跑起来
 
 ```bash
-# 前置：Rust stable、Node 20+、pnpm 9+
+# 前置：Rust stable、Node 24+、pnpm 11+
 # macOS 还需 xcode-select --install；Windows 需 VS Build Tools + WebView2
 
-pnpm install
-pnpm tauri dev          # 开发运行
+make install
+make dev
 ```
+
+`make` 查看全部命令。没装 make（Windows 默认没有）时，每条规则的实现就是等价的
+pnpm/cargo 命令，直接照抄即可。
+
+**Makefile 不只是别名表**，它编码了两条真实依赖：
+
+- `dist/` 是所有 cargo 目标的前置条件 —— Tauri 的 `generate_context!` 在编译期
+  嵌入前端产物，干净检出时先跑 cargo 必然失败（CI 曾栽在这里，见 §6.3）。
+  `make test-rs` 会自动先构建前端。
+- `node_modules` 依赖 lockfile，变了自动重装。
+
+关键目标：
+
+| 命令 | 用途 |
+|---|---|
+| `make dev` | 启动应用 |
+| `make gate` | 提交前的完整质量门（等价于 CI 的质量步骤） |
+| `make ci` | 完整复现 CI（再加打包、体积、冷启动预算） |
+| `make verify-clean-checkout` | 删掉 `dist/` 再跑门禁，复现 CI 的干净检出 |
 
 试一下：在左侧大纲框粘贴下面这段，点「生成规划」。
 
@@ -107,6 +126,9 @@ Rust 核心 → 重校验 → 返回 `ApplyResult`（含 `scene_stale`）→ 前
 ## 4. 测试策略：为什么是这样分层的
 
 ```bash
+make gate                  # 一条命令跑完下面全部（推荐）
+
+# 或者逐项来。注意顺序：
 pnpm build                 # ⚠️ 必须先跑：Tauri 的 generate_context! 宏在编译期
                            #    嵌入前端产物，dist/ 不存在会直接编译失败
 cargo test --workspace     # 415 个
