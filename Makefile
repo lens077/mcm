@@ -27,11 +27,27 @@ DIST_ENTRY := dist/index.html
 # 发行版二进制（smoke / 冷启动测量都用它）
 RELEASE_BIN := target/release/mcm-app
 
-.PHONY: help install dev build build-universal bundle \
+# 版本以 tauri.conf.json 为准（bump 脚本会保证它与 Cargo.toml 一致）
+VERSION = $(shell node -p "require('./src-tauri/tauri.conf.json').version" 2>/dev/null)
+
+# make release BUMP=minor / make bump BUMP=major
+BUMP ?= patch
+
+# 清洗 gh run view 的日志：剥掉 job/step/时间戳前缀，再去掉颜色转义。
+# 注意 gh 输出里的转义是**字面文本** ^[[1m 而非真正的 ESC 字节，
+# 两种形式都要处理，否则 grep 会漏掉带颜色的 error 行（实测踩过）。
+STRIP_LOG = sed -E -e 's/^.*[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z //' \
+                   -e 's/\x1b\[[0-9;]*m//g' \
+                   -e 's/\^\[\[[0-9;]*m//g'
+
+.PHONY: help install dev web build build-universal bundle \
         fmt fmt-check lint lint-rs lint-ci test test-rs test-web \
         bench smoke gate ci \
         check-bundle measure-startup fixtures \
-        clean clean-dist distclean verify-clean-checkout
+        clean clean-dist distclean verify-clean-checkout \
+        version bump-preview release releases release-watch \
+        ci-status ci-watch ci-log ci-fail \
+        verify-dmg verify-checksums package-purge
 
 # ─────────────────────────────── 帮助 ───────────────────────────────
 
@@ -140,6 +156,94 @@ verify-clean-checkout: ## 模拟 CI 干净检出（先删 dist/ 再跑质量门�
 	@echo "→ 删除 dist/，模拟干净检出"
 	@rm -rf dist
 	@$(MAKE) --no-print-directory gate
+
+# ─────────────────────────────── 发布 ───────────────────────────────
+#
+# 正常情况下不需要手动发版：push 到 main 且改了代码，release 工作流会自动
+# 递增补丁版本并发布。下面这些是给「要发 minor/major」和排查时用的。
+
+version: ## 显示当前版本号
+	@echo $(VERSION)
+
+bump-preview: ## 预演版本递增，不改任何文件（BUMP=patch|minor|major）
+	@node scripts/bump-version.mjs $(BUMP) --dry-run
+
+# 发版会由 CI 改写版本并提交回 main，本地落后就会与远端打架
+release: ## 手动触发发版（BUMP=patch|minor|major，默认 patch）
+	@command -v gh >/dev/null || { echo "需要 gh CLI：brew install gh"; exit 1; }
+	@git diff --quiet || { echo "工作区有未提交改动，先提交或暂存"; exit 1; }
+	@git fetch -q origin main && \
+	 [ "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" ] || \
+	 { echo "本地与 origin/main 不一致，先 git pull --rebase"; exit 1; }
+	gh workflow run release.yml -f bump=$(BUMP)
+	@echo "已触发（$(BUMP)）。用 make release-watch 跟踪。"
+
+releases: ## 列出已发布版本
+	@gh release list --limit 10
+
+release-watch: ## 跟踪最近一次发版运行直到结束
+	@id=$$(gh run list --workflow=release.yml --limit 1 --json databaseId \
+	        --jq '.[0].databaseId'); \
+	 echo "release run $$id"; \
+	 gh run watch "$$id" --exit-status
+
+# ───────────────────────────── CI 观测 ─────────────────────────────
+
+ci-status: ## 列出最近的工作流运行
+	@gh run list --limit 10
+
+ci-watch: ## 跟踪最近一次 CI 运行直到结束
+	@id=$$(gh run list --workflow=ci.yml --limit 1 --json databaseId \
+	        --jq '.[0].databaseId'); \
+	 echo "ci run $$id"; \
+	 gh run watch "$$id" --exit-status
+
+# 默认取最近一次失败的运行；也可以 make ci-log RUN=<id>
+ci-log: ## 查看运行日志（RUN=<id> 指定，默认最近一次失败）
+	@id="$(RUN)"; \
+	 [ -n "$$id" ] || id=$$(gh run list --status failure --limit 1 \
+	        --json databaseId --jq '.[0].databaseId'); \
+	 [ -n "$$id" ] || { echo "没有失败的运行"; exit 0; }; \
+	 gh run view "$$id" --log-failed | $(STRIP_LOG)
+
+ci-fail: ## 只看最近一次失败运行的错误行（比 ci-log 精简）
+	@id=$$(gh run list --status failure --limit 1 --json databaseId \
+	        --jq '.[0].databaseId'); \
+	 [ -n "$$id" ] || { echo "没有失败的运行"; exit 0; }; \
+	 echo "run $$id"; \
+	 gh run view "$$id" --log-failed 2>/dev/null | $(STRIP_LOG) \
+	   | grep -iE "error[:[]|panicked|assertion|not found|FAILED|exit code" \
+	   | head -30
+
+# ───────────────────────────── 产物核验 ─────────────────────────────
+
+verify-dmg: ## 校验 macOS DMG：校验和 + 能否挂载 + 内含 .app
+	@dmg=$$(ls target/release/bundle/dmg/*.dmg 2>/dev/null | head -1); \
+	 [ -n "$$dmg" ] || { echo "未找到 DMG，先 make bundle"; exit 1; }; \
+	 echo "→ $$dmg"; \
+	 hdiutil verify "$$dmg" 2>&1 | grep -iE "valid|invalid"; \
+	 mp=$$(hdiutil attach "$$dmg" -nobrowse -readonly 2>/dev/null \
+	       | tail -1 | awk '{print $$NF}'); \
+	 [ -n "$$mp" ] || { echo "挂载失败"; exit 1; }; \
+	 echo "挂载内容：$$(ls "$$mp" | tr '\n' ' ')"; \
+	 hdiutil detach "$$mp" >/dev/null 2>&1; \
+	 echo "✅ DMG 可用"
+
+verify-checksums: ## 下载指定版本的 SHA256SUMS 并校验附件（TAG=v0.1.1）
+	@tag="$(TAG)"; \
+	 [ -n "$$tag" ] || tag="v$(VERSION)"; \
+	 dir=$$(mktemp -d); \
+	 echo "→ $$tag"; \
+	 gh release download "$$tag" -D "$$dir" --clobber || exit 1; \
+	 cd "$$dir" && shasum -a 256 -c SHA256SUMS; \
+	 rm -rf "$$dir"
+
+# 早期版本曾把安装包推到 ghcr，现已停止。这条用来清理遗留镜像。
+# 需要额外授权：gh auth refresh -h github.com -s delete:packages,read:packages
+package-purge: ## 删除遗留的 ghcr 容器镜像（需 delete:packages 权限）
+	@gh api -X DELETE user/packages/container/mcm \
+	 && echo "已删除" \
+	 || echo "失败——多半是缺权限，见上方提示或到网页 Packages 页面手动删除"
 
 # ─────────────────────────────── 清理 ───────────────────────────────
 

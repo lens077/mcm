@@ -52,6 +52,11 @@ pnpm/cargo 命令，直接照抄即可。
 | `make ci` | 完整复现 CI（再加打包、体积、冷启动预算） |
 | `make verify-clean-checkout` | 删掉 `dist/` 再跑门禁，复现 CI 的干净检出 |
 | `make bundle` | 打包安装包；macOS 权限被拒时自动降级，见下 |
+| `make release BUMP=minor` | 手动发版（默认由 push 自动 patch 递增） |
+| `make ci-fail` | 最近一次 CI 失败的错误行，排查第一步 |
+| `make verify-checksums TAG=v0.1.1` | 下载该版本附件并校验 SHA256 |
+
+`make` 列出全部目标，发布与 CI 观测类命令都在其中。
 
 ### macOS 打包：权限被拒时自动降级
 
