@@ -140,6 +140,10 @@ fn parse_schedule(raw: &str) -> Option<Schedule> {
 
 /// Parses a whole document. Always returns a plan (possibly partial).
 #[must_use]
+// CRLF needs no normalisation here: `str::lines` already drops the trailing
+// `\r`, and the lexer strips it again defensively. Normalising in this function
+// would additionally treat a lone `\r` as a line break, which changes how many
+// lines a damaged document has — a property test caught exactly that.
 pub fn parse(source: &str) -> ParseOutput {
     let mut plan = Plan::empty();
     let mut issues = Vec::new();

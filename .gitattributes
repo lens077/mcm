@@ -1,0 +1,19 @@
+# Golden fixtures and source are byte-compared across platforms, so line
+# endings must not depend on the developer's git config. Without this, a
+# Windows checkout rewrites .mcm fixtures to CRLF and the canonical-form
+# assertions fail (seen on CI, 2026-08-27).
+* text=auto eol=lf
+
+# The native plan format is line-oriented and diffed by users; keep it LF.
+*.mcm text eol=lf
+
+# Exporter fixtures are compared byte-for-byte.
+*.xml text eol=lf
+*.json text eol=lf
+
+# Binary assets must never be touched.
+*.png binary
+*.ico binary
+*.icns binary
+*.xmind binary
+*.vsdx binary

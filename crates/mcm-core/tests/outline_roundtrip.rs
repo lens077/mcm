@@ -10,7 +10,13 @@ fn fixture(name: &str) -> String {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/outline")
         .join(name);
-    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+    let raw =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    // .gitattributes pins these files to LF, but a checkout can still hand us
+    // CRLF (a Windows CI run did exactly that). These tests are about the
+    // grammar, not about git config, so normalise instead of failing with a
+    // confusing whitespace diff.
+    raw.replace("\r\n", "\n")
 }
 
 const FIXTURES: [&str; 3] = [
@@ -20,6 +26,23 @@ const FIXTURES: [&str; 3] = [
 ];
 
 // ---------------------------------------------------------------- golden ---
+
+#[test]
+fn crlf_documents_serialise_back_to_lf() {
+    // Regression (CI, Windows): a CRLF checkout rewrote the fixtures and the
+    // canonical-form assertion failed. Parsing must accept CRLF and always
+    // emit LF (contracts/plan-file-format.md §基本约定).
+    let lf = fixture("contract-example.mcm");
+    let crlf = lf.replace('\n', "\r\n");
+
+    let from_lf = parse(&lf).plan;
+    let from_crlf = parse(&crlf).plan;
+    assert_eq!(from_crlf, from_lf, "line endings must not change the model");
+
+    let out = serialize(&from_crlf);
+    assert!(!out.contains('\r'), "serialisation must normalise to LF");
+    assert_eq!(out, lf);
+}
 
 #[test]
 fn golden_fixtures_parse_without_errors() {

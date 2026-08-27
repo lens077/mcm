@@ -248,7 +248,16 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
    含表达式或逗号的 `with` 一律用块式写法。**改工作流后先跑 `actionlint`**——
    上面第 3 类问题它能直接指出来，不必靠 CI 往返。
-4. **Windows 缺 `icons/icon.ico`**：`tauri-build` 生成 Windows 资源文件时必需。
+4. **Windows 换行**：Git 在 Windows 检出时把 `.mcm` fixture 重写成 CRLF，
+   golden 测试拿原始字节比对 LF 输出，断言失败。产品本身没问题
+   （`str::lines` 已剥掉行尾 `\r`，词法层还再剥一次）。修法是
+   `.gitattributes` 钉死 LF + 测试加载 fixture 时归一化换行。
+
+   > 顺带一提：我一度想在 `parse()` 里加"防御性归一化"，属性测试立刻指出
+   > 那会把孤立的 `\r` 也当成换行、改变损坏文档的行数语义。改动已回退——
+   > **产品原本就是对的，别改对的东西**。
+
+5. **Windows 缺 `icons/icon.ico`**：`tauri-build` 生成 Windows 资源文件时必需。
    原先只有 PNG 图标，macOS 能过、Windows 直接构建失败。现已补齐
    `icon.ico`（6 种尺寸）与 `icon.icns`，两者都登记在 `tauri.conf.json`
    的 `bundle.icon` 里。
