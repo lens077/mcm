@@ -113,6 +113,7 @@ cargo test --workspace     # 415 个
 pnpm test                  # 76 个
 cargo bench -p mcm-core    # 7 项性能预算（超预算即 panic）
 pnpm smoke                 # 9 个端到端场景（双平台通用）
+actionlint                 # 校验 .github/workflows/*.yml（brew install actionlint）
 ```
 
 **踩坑提醒**：`dist/` 被 gitignore，本地通常已存在所以感觉不到；干净检出（CI）
@@ -231,9 +232,21 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
 ### 6.3 CI
 
-首次运行即暴露了一个真实缺陷（cargo 在 `pnpm build` 之前跑，`dist/` 不存在导致
-编译失败），已修复：步骤顺序固定，且加了 `Swatinem/rust-cache` 缩短构建时间。
-Windows 分支的完整绿灯仍需关注。
+首次运行暴露了三个真实缺陷，均已修复：
+
+1. **步骤顺序**：cargo 在 `pnpm build` 之前跑，`dist/` 不存在导致
+   `generate_context!` 编译失败。已把 `pnpm build` 提到最前。
+2. **`pnpm e2e:win` 的 wdio 命令不存在**（依赖从未安装）。已移到手动触发的
+   `e2e-windows.yml`。
+3. **YAML 流式映射的坑**（`with: { ... }`）：
+   - `{ key: ${{ matrix.os }} }` → `${{` 的花括号被当成嵌套映射，整个工作流
+     文件解析失败，run 在 0 秒内挂掉
+   - `{ components: clippy,rustfmt }` → 逗号把它切成两个键，`rustfmt`
+     成了未定义输入，**rustfmt 组件其实从未被安装**（`cargo fmt` 能过是因为
+     工具链自带）
+
+   含表达式或逗号的 `with` 一律用块式写法。**改工作流后先跑 `actionlint`**——
+   上面第 3 类问题它能直接指出来，不必靠 CI 往返。
 
 ### 6.4 项目名
 

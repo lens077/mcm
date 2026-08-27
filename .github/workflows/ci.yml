@@ -21,9 +21,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
-        with: { components: clippy,rustfmt }
+        # One `components` input, comma-separated. Written as a flow mapping the
+        # comma split it into a second, undefined key and rustfmt was silently
+        # never installed.
+        with:
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-        with: { key: ${{ matrix.os }} }
+        # Block style: a `${{ }}` expression cannot sit inside a YAML flow
+        # mapping, because `{` starts a nested mapping there.
+        with:
+          key: ${{ matrix.os }}
 
       - run: pnpm install --frozen-lockfile
 
