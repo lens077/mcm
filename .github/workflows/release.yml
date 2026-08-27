@@ -1,0 +1,217 @@
+# 发布 Releases 与 Packages
+#
+# 两种模式，共用一条流水线：
+#
+#   push 到 main（且改了代码）  -> 刷新滚动预发布 `dev`，始终指向最新提交
+#   手动触发 stable=true        -> 正式发布 v<version>，版本取自 tauri.conf.json
+#
+# 为什么正式版不跟着每次 push 走：版本号写在仓库里，每次 push 都发正式版会
+# 反复撞同一个 tag，要么失败要么把历史版本覆盖掉。滚动 `dev` 解决「随时拿到
+# 最新构建」的诉求，正式版则由人决定何时切。
+#
+# 产出
+#   Releases  —— macOS .dmg 与 Windows .msi，附 SHA256SUMS
+#   Packages  —— ghcr.io 容器镜像，内含上述安装包（GitHub Packages 对本仓库
+#                这类桌面应用唯一适配的类型；主分发渠道仍是 Release 附件）
+
+name: release
+
+on:
+  push:
+    branches: [main]
+    # 纯文档改动不触发发布
+    paths-ignore:
+      - "**.md"
+      - "specs/**"
+      - ".github/workflows/e2e-windows.yml"
+  workflow_dispatch:
+    inputs:
+      stable:
+        description: "发布正式版（否则刷新 dev 预发布）"
+        type: boolean
+        default: false
+
+# 同一分支的重复发布互相取消，避免产物错乱
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── 决定这次发什么版本 ────────────────────────────────────────────
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.pick.outputs.version }}
+      tag: ${{ steps.pick.outputs.tag }}
+      prerelease: ${{ steps.pick.outputs.prerelease }}
+      title: ${{ steps.pick.outputs.title }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: pick
+        run: |
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          {
+            echo "version=${version}"
+            if [ "${{ inputs.stable }}" = "true" ]; then
+              echo "tag=v${version}"
+              echo "prerelease=false"
+              echo "title=v${version}"
+            else
+              echo "tag=dev"
+              echo "prerelease=true"
+              echo "title=开发版 (v${version})"
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+  # ── 双平台构建安装包 ──────────────────────────────────────────────
+  build:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: macos
+          - os: windows-latest
+            artifact: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.os }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # 与 ci.yml 同因：generate_context! 编译期嵌入前端产物
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Bundle installer
+        run: pnpm bundle
+
+      # 发布前的最后一道闸：产物本身能跑通共享场景清单。
+      # release 二进制已由上一步构建，这步几乎不额外耗时。
+      - name: Scenario smoke
+        run: pnpm smoke
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p out
+          # bundle.targets 为 "all"：macOS 出 .dmg，Windows 同时出 .msi 与 NSIS .exe。
+          # 按后缀收集而非写死单一路径，少一种也不会静默漏掉。
+          # 排除 rw.<pid>.*.dmg —— 那是 bundle_dmg.sh 的读写中间映像，非交付物。
+          found=0
+          while IFS= read -r file; do
+            base=$(basename "$file")
+            case "$base" in rw.[0-9]*.*) continue ;; esac
+            cp "$file" out/
+            found=$((found + 1))
+          done < <(find target/release/bundle \
+            \( -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' \) -type f)
+
+          if [ "$found" -eq 0 ]; then
+            echo "未找到任何安装包，bundle 目录内容如下：" >&2
+            find target/release/bundle -maxdepth 2 >&2 || true
+            exit 1
+          fi
+          echo "收集到 $found 个安装包："
+          ls -la out
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer-${{ matrix.artifact }}
+          path: out/*
+          if-no-files-found: error
+
+  # ── 发布 Release 与 Package ───────────────────────────────────────
+  publish:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 建 Release
+      packages: write # 推 ghcr 镜像
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd artifacts
+          ls -la
+          # ./* 而非 *：文件名以 - 开头时不会被当成命令选项
+          sha256sum ./* > SHA256SUMS
+          cat SHA256SUMS
+
+      # 滚动预发布要先删旧的，否则 tag 停在老提交上
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag='${{ needs.plan.outputs.tag }}'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "已存在 $tag，先删除以便重建"
+            gh release delete "$tag" --yes --cleanup-tag
+          fi
+          flags=(--title '${{ needs.plan.outputs.title }}' --target "$GITHUB_SHA")
+          if [ '${{ needs.plan.outputs.prerelease }}' = 'true' ]; then
+            flags+=(--prerelease --notes "由 $GITHUB_SHA 自动构建的开发版，随 main 滚动更新。")
+          else
+            flags+=(--generate-notes)
+          fi
+          gh release create "$tag" "${flags[@]}" artifacts/*
+
+      # GitHub Packages：把安装包装进 OCI 镜像，便于按版本拉取与留存
+      - name: Build and push container
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tag='${{ needs.plan.outputs.tag }}'
+          version='${{ needs.plan.outputs.version }}'
+
+          cat > Dockerfile.release <<'DOCKERFILE'
+          FROM alpine:3
+          # 只装安装包，不含运行时——桌面应用不在容器里跑，
+          # 这里纯粹作为可按版本拉取的分发与留存渠道。
+          COPY artifacts/ /dist/
+          CMD ["sh", "-c", "ls -la /dist"]
+          DOCKERFILE
+
+          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build -f Dockerfile.release \
+            --label org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \
+            --label org.opencontainers.image.version="${version}" \
+            --label org.opencontainers.image.revision="${GITHUB_SHA}" \
+            --label org.opencontainers.image.description="MCM 安装包（macOS .dmg / Windows .msi）" \
+            --label org.opencontainers.image.licenses="MIT" \
+            -t "${image}:${tag}" \
+            -t "${image}:${version}" .
+          docker push "${image}:${tag}"
+          docker push "${image}:${version}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### 发布完成"
+            echo ""
+            echo "- Release: \`${{ needs.plan.outputs.tag }}\`（${{ needs.plan.outputs.title }}）"
+            echo "- Package: \`ghcr.io/${GITHUB_REPOSITORY,,}:${{ needs.plan.outputs.tag }}\`"
+            echo ""
+            echo "附件："
+            find artifacts -maxdepth 1 -type f -printf '- %f\n' | sort
+          } >> "$GITHUB_STEP_SUMMARY"
