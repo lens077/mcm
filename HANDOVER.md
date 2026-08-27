@@ -228,7 +228,8 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
 - WebDriver 套件（`.github/workflows/e2e-windows.yml`，手动触发）：已写好但
   从未运行，wdio 依赖也未进主依赖树；首次跑很可能需要调整选择器与超时
-- `pnpm tauri build` 的 Windows 产物与 `.msi` 体积
+- `pnpm tauri build` 的 Windows 产物与 `.msi` 体积（图标已补齐，但 `.msi`
+  从未实际产出过）
 
 ### 6.3 CI
 
@@ -247,6 +248,10 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
    含表达式或逗号的 `with` 一律用块式写法。**改工作流后先跑 `actionlint`**——
    上面第 3 类问题它能直接指出来，不必靠 CI 往返。
+4. **Windows 缺 `icons/icon.ico`**：`tauri-build` 生成 Windows 资源文件时必需。
+   原先只有 PNG 图标，macOS 能过、Windows 直接构建失败。现已补齐
+   `icon.ico`（6 种尺寸）与 `icon.icns`，两者都登记在 `tauri.conf.json`
+   的 `bundle.icon` 里。
 
 ### 6.4 项目名
 
