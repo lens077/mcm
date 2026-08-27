@@ -231,8 +231,19 @@ Windows 上都跑它**——同一批场景 ID（S1/S3/S5/S6/S7/S8/S9/S11）构�
 
 ## 4.5 发布
 
-`.github/workflows/release.yml`：**每次代码改动推送到 main，自动递增补丁版本
-并发布正式版 Release**。纯文档改动不发版（见 `paths-ignore`）。
+`.github/workflows/release.yml`：**推送到 main 且改动了真正进入安装包的文件时，
+自动递增补丁版本并发布正式版 Release**。
+
+触发用的是**白名单**（`on.push.paths`）而非 `paths-ignore`：只有 `src/`、
+`src-tauri/`、`crates/`、依赖与工具链声明、以及直接影响构建产出的配置才发版。
+文档、`Makefile`、`scripts/`、`.github/`、`tests/` 等一律不发。
+
+之所以不用黑名单：要逐个排除 `tests/`、`.claude/`、`eslint.config.js`、
+`rustfmt.toml`、`.prettierrc` 等十余项，且以后新增任何配置文件都会误触发。
+白名单的失败方向是安全的——新路径未列入只会「不发版」，而不是平白发一个
+内容毫无变化的版本。
+
+> **新增顶层源码目录时记得同步 `paths` 列表**，否则改了代码却不发版。
 
 ```bash
 # 手动发版并指定递增级别

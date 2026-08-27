@@ -11,3 +11,6 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+# TypeScript 增量编译缓存：随每次构建变化，不入版本库
+*.tsbuildinfo

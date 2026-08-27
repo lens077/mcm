@@ -18,10 +18,31 @@ name: release
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "specs/**"
-      - ".github/workflows/e2e-windows.yml"
+    # 白名单而非 paths-ignore：只有真正进入安装包的东西才发版。
+    #
+    # 用黑名单会漏——tests/、.claude/、eslint.config.js、rustfmt.toml、
+    # .prettierrc 之类都得逐个排除，且以后新增任何配置文件都会误触发。
+    # 白名单的失败方向是安全的：新路径未列入只会「不发版」，
+    # 而不是平白发一个内容毫无变化的版本。
+    #
+    # 新增顶层源码目录时记得同步这里，否则改了代码却不发版。
+    paths:
+      # 应用与库的源码
+      - "src/**" # 前端，经 dist 嵌入
+      - "src-tauri/**" # Tauri 外壳、配置、图标
+      - "crates/**" # Rust 核心与导出器
+      # 依赖与工具链——变了产物就可能变
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      # 直接影响构建产出的配置
+      - "index.html"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
   workflow_dispatch:
     inputs:
       bump:
