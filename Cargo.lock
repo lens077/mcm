@@ -2160,7 +2160,7 @@ dependencies = [
 
 [[package]]
 name = "mcm-app"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "mcm-core",
  "mcm-export",
@@ -2174,7 +2174,7 @@ dependencies = [
 
 [[package]]
 name = "mcm-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "criterion",
@@ -2186,7 +2186,7 @@ dependencies = [
 
 [[package]]
 name = "mcm-export"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "libvisio-rs",
