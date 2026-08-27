@@ -1,69 +1,78 @@
-# 发布 Releases 与 Packages
+# 每次代码改动推送到 main，自动递增版本并发布正式版 Release。
 #
-# 两种模式，共用一条流水线：
+# 流程
+#   plan    递增补丁版本 -> 提交回 main -> 输出新版本与提交 SHA
+#   build   检出该提交，双平台打包（产物文件名即带新版本号）
+#   publish 下载产物、生成校验和、创建 Release
 #
-#   push 到 main（且改了代码）  -> 刷新滚动预发布 `dev`，始终指向最新提交
-#   手动触发 stable=true        -> 正式发布 v<version>，版本取自 tauri.conf.json
+# 为什么 plan 要先提交再构建：安装包文件名内嵌版本号，若先构建后改版本，
+# 产物名会停留在旧版本，与 Release tag 对不上。
 #
-# 为什么正式版不跟着每次 push 走：版本号写在仓库里，每次 push 都发正式版会
-# 反复撞同一个 tag，要么失败要么把历史版本覆盖掉。滚动 `dev` 解决「随时拿到
-# 最新构建」的诉求，正式版则由人决定何时切。
+# 不会触发递归：GitHub 明确规定用 GITHUB_TOKEN 推送的提交不会再触发工作流。
+# 提交信息仍带 [skip ci] 作为双保险，并让意图对读日志的人可见。
 #
-# 产出
-#   Releases  —— macOS .dmg 与 Windows .msi，附 SHA256SUMS
-#   Packages  —— ghcr.io 容器镜像，内含上述安装包（GitHub Packages 对本仓库
-#                这类桌面应用唯一适配的类型；主分发渠道仍是 Release 附件）
+# 纯文档改动不发版（见 paths-ignore）。
 
 name: release
 
 on:
   push:
     branches: [main]
-    # 纯文档改动不触发发布
     paths-ignore:
       - "**.md"
       - "specs/**"
       - ".github/workflows/e2e-windows.yml"
   workflow_dispatch:
     inputs:
-      stable:
-        description: "发布正式版（否则刷新 dev 预发布）"
-        type: boolean
-        default: false
+      bump:
+        description: "版本递增级别"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
-# 同一分支的重复发布互相取消，避免产物错乱
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false # 发版不可中途取消，否则版本号会跳空
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # ── 决定这次发什么版本 ────────────────────────────────────────────
+  # ── 递增版本并提交回仓库 ──────────────────────────────────────────
   plan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
-      version: ${{ steps.pick.outputs.version }}
-      tag: ${{ steps.pick.outputs.tag }}
-      prerelease: ${{ steps.pick.outputs.prerelease }}
-      title: ${{ steps.pick.outputs.title }}
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.bump.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
-      - id: pick
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          install: false
+      - uses: dtolnay/rust-toolchain@stable
+
+      - id: bump
         run: |
-          version=$(jq -r .version src-tauri/tauri.conf.json)
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          version=$(node scripts/bump-version.mjs "${{ inputs.bump || 'patch' }}")
+          # 工作区成员版本变了，让 cargo 自己刷新 lock 而不是正则替换
+          cargo update -w --offline
+
+          git add Cargo.toml Cargo.lock src-tauri/tauri.conf.json
+          git commit -m "chore(release): v${version} [skip ci]"
+
+          # 期间可能有别人推送，先变基再推
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
+
           {
             echo "version=${version}"
-            if [ "${{ inputs.stable }}" = "true" ]; then
-              echo "tag=v${version}"
-              echo "prerelease=false"
-              echo "title=v${version}"
-            else
-              echo "tag=dev"
-              echo "prerelease=true"
-              echo "title=开发版 (v${version})"
-            fi
+            echo "sha=$(git rev-parse HEAD)"
           } >> "$GITHUB_OUTPUT"
 
   # ── 双平台构建安装包 ──────────────────────────────────────────────
@@ -72,14 +81,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-latest
-            artifact: macos
-          - os: windows-latest
-            artifact: windows
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      # 检出带新版本号的提交，产物名才与 Release tag 一致
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
       - uses: pnpm/setup@v2
         with:
           runtime: node@24
@@ -99,7 +108,7 @@ jobs:
       - name: Bundle installer
         run: pnpm bundle
 
-      # 发布前的最后一道闸：产物本身能跑通共享场景清单。
+      # 发布前最后一道闸：产物本身能跑通共享场景清单。
       # release 二进制已由上一步构建，这步几乎不额外耗时。
       - name: Scenario smoke
         run: pnpm smoke
@@ -130,19 +139,20 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: installer-${{ matrix.artifact }}
+          name: installer-${{ matrix.os }}
           path: out/*
           if-no-files-found: error
 
-  # ── 发布 Release 与 Package ───────────────────────────────────────
+  # ── 发布 Release ──────────────────────────────────────────────────
   publish:
     needs: [plan, build]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 建 Release
-      packages: write # 推 ghcr 镜像
+      contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
 
       - uses: actions/download-artifact@v8
         with:
@@ -164,60 +174,21 @@ jobs:
           done
           cat SHA256SUMS
 
-      # 滚动预发布要先删旧的，否则 tag 停在老提交上
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag='${{ needs.plan.outputs.tag }}'
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "已存在 $tag，先删除以便重建"
-            gh release delete "$tag" --yes --cleanup-tag
-          fi
-          flags=(--title '${{ needs.plan.outputs.title }}' --target "$GITHUB_SHA")
-          if [ '${{ needs.plan.outputs.prerelease }}' = 'true' ]; then
-            flags+=(--prerelease --notes "由 $GITHUB_SHA 自动构建的开发版，随 main 滚动更新。")
-          else
-            flags+=(--generate-notes)
-          fi
-          gh release create "$tag" "${flags[@]}" artifacts/*
-
-      # GitHub Packages：把安装包装进 OCI 镜像，便于按版本拉取与留存
-      - name: Build and push container
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          tag='${{ needs.plan.outputs.tag }}'
-          version='${{ needs.plan.outputs.version }}'
-
-          cat > Dockerfile.release <<'DOCKERFILE'
-          FROM alpine:3
-          # 只装安装包，不含运行时——桌面应用不在容器里跑，
-          # 这里纯粹作为可按版本拉取的分发与留存渠道。
-          COPY artifacts/ /dist/
-          CMD ["sh", "-c", "ls -la /dist"]
-          DOCKERFILE
-
-          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          docker build -f Dockerfile.release \
-            --label org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \
-            --label org.opencontainers.image.version="${version}" \
-            --label org.opencontainers.image.revision="${GITHUB_SHA}" \
-            --label org.opencontainers.image.description="MCM 安装包（macOS .dmg / Windows .msi）" \
-            --label org.opencontainers.image.licenses="MIT" \
-            -t "${image}:${tag}" \
-            -t "${image}:${version}" .
-          docker push "${image}:${tag}"
-          docker push "${image}:${version}"
+          tag="v${{ needs.plan.outputs.version }}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --target "${{ needs.plan.outputs.sha }}" \
+            --generate-notes \
+            artifacts/*
 
       - name: Summary
         run: |
           {
-            echo "### 发布完成"
-            echo ""
-            echo "- Release: \`${{ needs.plan.outputs.tag }}\`（${{ needs.plan.outputs.title }}）"
-            echo "- Package: \`ghcr.io/${GITHUB_REPOSITORY,,}:${{ needs.plan.outputs.tag }}\`"
+            echo "### 已发布 v${{ needs.plan.outputs.version }}"
             echo ""
             echo "附件："
             find artifacts -maxdepth 1 -type f -printf '- %f\n' | sort

@@ -226,24 +226,32 @@ Windows 上都跑它**——同一批场景 ID（S1/S3/S5/S6/S7/S8/S9/S11）构�
 
 ## 4.5 发布
 
-`.github/workflows/release.yml` 一条流水线两种模式：
-
-| 触发 | 产出 |
-|---|---|
-| push 到 main（改了代码） | 刷新滚动预发布 `dev`，始终指向最新提交 |
-| 手动触发 `stable=true` | 正式发布 `v<version>`，版本取自 `tauri.conf.json` |
+`.github/workflows/release.yml`：**每次代码改动推送到 main，自动递增补丁版本
+并发布正式版 Release**。纯文档改动不发版（见 `paths-ignore`）。
 
 ```bash
-gh workflow run release.yml -f stable=true   # 发正式版
+# 手动发版并指定递增级别
+gh workflow run release.yml -f bump=minor
 ```
 
-**为什么正式版不跟着每次 push 走**：版本号写在仓库里，每次 push 都发正式版会
-反复撞同一个 tag——要么失败，要么覆盖历史版本。滚动 `dev` 满足「随时拿到最新
-构建」，正式版由人决定何时切。纯文档改动不触发。
+流程：`plan`（递增版本 → 提交回 main）→ `build`（检出该提交、双平台打包）
+→ `publish`（校验和 + 创建 Release）。
 
-产出：
-- **Releases** — `.dmg`（macOS）、`.msi` 与 NSIS `.exe`（Windows），附 `SHA256SUMS`
-- **Packages** — `ghcr.io/lens077/mcm:<tag>` 容器镜像，内含上述安装包
+**为什么 plan 必须先提交再构建**：安装包文件名内嵌版本号，若先构建后改版本，
+产物名会停留在旧版本，与 Release tag 对不上。
+
+**不会递归触发**：GitHub 规定用 `GITHUB_TOKEN` 推送的提交不再触发工作流；
+提交信息仍带 `[skip ci]` 作为双保险。
+
+版本在两处声明，必须同步——`scripts/bump-version.mjs` 负责这件事，并在两者
+不一致时直接报错而非猜测：
+
+- `Cargo.toml` 的 `[workspace.package] version`
+- `src-tauri/tauri.conf.json` 的 `version`
+
+`Cargo.lock` 由 `cargo update -w --offline` 刷新，不做正则替换。
+
+产出：`.dmg`（macOS）、`.msi` 与 NSIS `.exe`（Windows），附 `SHA256SUMS`。
 
 两个实现上的坑，改动时注意：
 
@@ -255,6 +263,9 @@ gh workflow run release.yml -f stable=true   # 发正式版
 
 发布前会跑一次 `pnpm smoke`：release 二进制已由打包步骤构建，几乎零额外耗时，
 但能保证发出去的产物真能跑通共享场景清单。
+
+> 早期版本曾同时推送 ghcr.io 容器镜像到 GitHub Packages，现已移除——对桌面
+> 应用而言那是个勉强的适配，安装包才是真正的分发渠道。
 
 ## 5. 常用命令
 

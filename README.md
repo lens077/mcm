@@ -75,7 +75,7 @@ CI 在 macOS + Windows 双平台执行，全部为合入门槛：
 
 [Releases](https://github.com/lens077/mcm/releases) 提供 macOS（`.dmg`）与
 Windows（`.msi` / `.exe`）安装包，附 `SHA256SUMS` 可校验。
-`dev` 为随 main 滚动更新的开发版。
+每次代码改动推送到 main 会自动递增补丁版本并发布新版。
 
 ## 文档
 
