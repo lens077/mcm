@@ -248,6 +248,12 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
    含表达式或逗号的 `with` 一律用块式写法。**改工作流后先跑 `actionlint`**——
    上面第 3 类问题它能直接指出来，不必靠 CI 往返。
+
+   **Action 版本**：GitHub 已弃用 Node 20 运行时，所有 action 都升到了
+   node24 的版本。升级时**逐个核对 `action.yml` 的 `runs.using`**，别按主版本
+   号想当然——`actions/upload-artifact@v5` 仍是 node20，必须用 v6。
+   `pnpm/action-setup` 必须 ≥ v6：v6 才是第一个支持 pnpm v11 的版本。
+   pnpm 版本由 `package.json` 的 `packageManager` 字段单一决定，CI 不再重复声明。
 4. **Windows 换行**：Git 在 Windows 检出时把 `.mcm` fixture 重写成 CRLF，
    golden 测试拿原始字节比对 LF 输出，断言失败。产品本身没问题
    （`str::lines` 已剥掉行尾 `\r`，词法层还再剥一次）。修法是

@@ -15,10 +15,12 @@ jobs:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 11.22.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      # v6 is the first release that officially supports pnpm v11. The version
+      # itself comes from the `packageManager` field in package.json, so CI and
+      # the repo cannot drift apart.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
         with: { node-version: 24, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
         # One `components` input, comma-separated. Written as a flow mapping the

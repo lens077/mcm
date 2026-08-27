@@ -20,10 +20,11 @@ jobs:
   webdriver:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 11.22.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      # v6 is the first release that officially supports pnpm v11; the version
+      # comes from the `packageManager` field in package.json.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
         with: { node-version: 24, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -53,7 +54,8 @@ jobs:
 
       - name: Upload logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        # v6, not v5: upload-artifact@v5 still runs on the deprecated node20.
+        uses: actions/upload-artifact@v6
         with:
           name: wdio-logs
           path: |
