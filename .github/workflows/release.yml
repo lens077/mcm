@@ -153,8 +153,15 @@ jobs:
         run: |
           cd artifacts
           ls -la
-          # ./* 而非 *：文件名以 - 开头时不会被当成命令选项
-          sha256sum ./* > SHA256SUMS
+          # 逐个显式传文件名：既避免以 - 开头的名字被当成选项（用 -- 隔断），
+          # 又不会像 `sha256sum ./*` 那样把 ./ 前缀写进清单，
+          # 使 `sha256sum -c SHA256SUMS` 在任意目录下都能直接用。
+          : > SHA256SUMS
+          for file in *; do
+            [ -f "$file" ] || continue
+            [ "$file" = SHA256SUMS ] && continue
+            sha256sum -- "$file" >> SHA256SUMS
+          done
           cat SHA256SUMS
 
       # 滚动预发布要先删旧的，否则 tag 停在老提交上
