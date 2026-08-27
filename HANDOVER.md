@@ -224,6 +224,38 @@ Windows 上都跑它**——同一批场景 ID（S1/S3/S5/S6/S7/S8/S9/S11）构�
 
 ---
 
+## 4.5 发布
+
+`.github/workflows/release.yml` 一条流水线两种模式：
+
+| 触发 | 产出 |
+|---|---|
+| push 到 main（改了代码） | 刷新滚动预发布 `dev`，始终指向最新提交 |
+| 手动触发 `stable=true` | 正式发布 `v<version>`，版本取自 `tauri.conf.json` |
+
+```bash
+gh workflow run release.yml -f stable=true   # 发正式版
+```
+
+**为什么正式版不跟着每次 push 走**：版本号写在仓库里，每次 push 都发正式版会
+反复撞同一个 tag——要么失败，要么覆盖历史版本。滚动 `dev` 满足「随时拿到最新
+构建」，正式版由人决定何时切。纯文档改动不触发。
+
+产出：
+- **Releases** — `.dmg`（macOS）、`.msi` 与 NSIS `.exe`（Windows），附 `SHA256SUMS`
+- **Packages** — `ghcr.io/lens077/mcm:<tag>` 容器镜像，内含上述安装包
+
+两个实现上的坑，改动时注意：
+
+- **安装包按后缀收集，不要写死路径**。`bundle.targets` 是 `"all"`，Windows 会
+  同时产出 `.msi` 与 NSIS `.exe`——首次发布就证实了这点，写死单一 glob 会静默
+  漏掉一个。收集时还要排除 `rw.<pid>.*.dmg` 中间映像。
+- **校验和清单不能带 `./` 前缀**，否则下载后在别的目录 `sha256sum -c` 会找不到
+  文件。另注意 `find -printf` 是 GNU 扩展，macOS 上无法本地验证，别用。
+
+发布前会跑一次 `pnpm smoke`：release 二进制已由打包步骤构建，几乎零额外耗时，
+但能保证发出去的产物真能跑通共享场景清单。
+
 ## 5. 常用命令
 
 ```bash

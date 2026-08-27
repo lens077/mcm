@@ -71,6 +71,12 @@ CI 在 macOS + Windows 双平台执行，全部为合入门槛：
 | 冷启动 P95 | 25 ms（预算 2000 ms） |
 | 安装包体积 | 11.3 MB（预算 25 MB） |
 
+## 下载
+
+[Releases](https://github.com/lens077/mcm/releases) 提供 macOS（`.dmg`）与
+Windows（`.msi` / `.exe`）安装包，附 `SHA256SUMS` 可校验。
+`dev` 为随 main 滚动更新的开发版。
+
 ## 文档
 
 - **[HANDOVER.md](./HANDOVER.md)** — 交接文档：架构决策、测试策略、未验证部分、后续方向
