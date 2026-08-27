@@ -21,11 +21,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      # v6 is the first release that officially supports pnpm v11; the version
-      # comes from the `packageManager` field in package.json.
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with: { node-version: 24, cache: pnpm }
+      # Installs pnpm and the JS runtime in one step; see ci.yml for the
+      # reasoning behind `install: false`.
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with: { key: e2e-windows }

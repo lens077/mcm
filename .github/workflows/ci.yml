@@ -16,12 +16,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      # v6 is the first release that officially supports pnpm v11. The version
-      # itself comes from the `packageManager` field in package.json, so CI and
-      # the repo cannot drift apart.
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with: { node-version: 24, cache: pnpm }
+      # Successor to pnpm/action-setup for pnpm v11+. It installs pnpm as a
+      # self-contained binary AND the JS runtime, so actions/setup-node is no
+      # longer needed. The pnpm version still comes from the `packageManager`
+      # field in package.json, so CI and the repo cannot drift apart.
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          # `pnpm install` stays an explicit step below: --frozen-lockfile is a
+          # merge gate (the lockfile must be committed and current) and that
+          # guarantee should be visible, not inherited from a CI-env default.
+          install: false
       - uses: dtolnay/rust-toolchain@stable
         # One `components` input, comma-separated. Written as a flow mapping the
         # comma split it into a second, undefined key and rustfmt was silently
@@ -33,6 +39,12 @@ jobs:
         # mapping, because `{` starts a nested mapping there.
         with:
           key: ${{ matrix.os }}
+
+      - name: Toolchain versions
+        run: |
+          pnpm --version
+          node --version
+          cargo --version
 
       - run: pnpm install --frozen-lockfile
 
@@ -64,4 +76,4 @@ jobs:
 
       # Installer size is a merge gate (plan.md §Constraints ≤ 25MB).
       - run: pnpm check:bundle
-      - run: node scripts/measure-startup.mjs
+      - run: pnpm measure:startup

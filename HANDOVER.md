@@ -255,9 +255,8 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
    | Action | 版本 | 备注 |
    |---|---|---|
    | `actions/checkout` | v7 | |
-   | `actions/setup-node` | v7 | |
+   | `pnpm/setup` | v2 | **同时装 pnpm 与 Node**，已取代 `actions/setup-node` |
    | `actions/upload-artifact` | v7 | |
-   | `pnpm/action-setup` | v6 | v6 才开始支持 pnpm v11 |
    | `Swatinem/rust-cache` | v2 | v2 即最新主版本 |
    | `dtolnay/rust-toolchain` | @stable | composite，不涉及 Node 运行时 |
 
@@ -272,9 +271,18 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
    pnpm 版本由 `package.json` 的 `packageManager` 字段单一决定，CI 不再重复声明。
 
-   `pnpm/action-setup` 有继任者 [`pnpm/setup`](https://github.com/pnpm/setup)
-   （面向 pnpm v11+，可同时安装 JS 运行时从而替代 `actions/setup-node`）。
-   那是结构性改动，尚未采用。
+   **已迁移到 `pnpm/setup`**（`pnpm/action-setup` 的继任者，面向 pnpm v11+）。
+   它下载 pnpm 自包含二进制并顺带安装 Node，因此 `actions/setup-node` 已移除。
+   两处有意偏离官方迁移指引：
+
+   - `install: false`：指引建议让 action 顺带跑 `pnpm install`，但
+     `--frozen-lockfile` 是合入门槛（lockfile 必须已提交且最新），这个保证
+     应当在工作流里显式可见，而不是依赖 CI 环境变量的隐式默认。
+   - 脚本一律走 `pnpm <script>` 而非直接 `node`，不依赖 PATH 细节。
+
+   Node 版本以 `runtime: node@24` 写在工作流里。也可以改放进 package.json 的
+   `devEngines.runtime` 由 action 自动读取，但那会给本地开发者引入额外约束，
+   暂未采用。
 4. **Windows 换行**：Git 在 Windows 检出时把 `.mcm` fixture 重写成 CRLF，
    golden 测试拿原始字节比对 LF 输出，断言失败。产品本身没问题
    （`str::lines` 已剥掉行尾 `\r`，词法层还再剥一次）。修法是
