@@ -284,6 +284,8 @@ Pangolin/Traefik）与镜像 https://lens077.github.io/mcm/ （GitHub Pages，�
 两处路径前缀不同（根 vs `/mcm`），`site`/`base` 由环境变量注入，资源路径必须
 用 `import.meta.env.BASE_URL` 拼接，写死绝对路径会让子路径部署下图片全 404。
 
+配置全过程整理成了教程：[docs/github-pages-with-gh.md](./docs/github-pages-with-gh.md)。
+
 两点容易踩的：
 
 - **`site/` 必须与根工作区解耦**（靠它自己的 `pnpm-workspace.yaml`）。否则
