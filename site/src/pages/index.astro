@@ -1,0 +1,525 @@
+---
+import "../styles/tokens.css";
+
+// 站点是纯静态的，这些常量随发布一起更新即可。
+const repo = "https://github.com/lens077/mcm";
+const releases = `${repo}/releases/latest`;
+
+// 全部取自仓库内已验证的实测结果，不写没有依据的数字。
+const facts = [
+  { value: "25 ms", label: "冷启动 P95", note: "预算 2 s" },
+  { value: "11.3 MB", label: "安装包体积", note: "预算 25 MB" },
+  { value: "22 ms", label: "5000 任务解析 + 校验", note: "预算 200 ms" },
+  { value: "491", label: "自动化测试", note: "Rust 415 · 前端 76" },
+];
+
+const views = [
+  { name: "任务分解", desc: "层级结构与归属，一眼看清谁负责哪块。" },
+  { name: "依赖网络", desc: "分层 DAG 呈现前后置关系，环路直接标红。" },
+  { name: "时间线", desc: "依赖驱动推导日期，拖动即改期。" },
+  { name: "里程碑", desc: "关键节点与它所关联的任务。" },
+];
+
+const outline = `%mcm 1
+%title 移动端改版
+%start 2026-09-01
+
+- 需求阶段 #t1 @王芳
+  - [x] 用户访谈 #t2 [2026-09-01..2026-09-05]
+  - 竞品分析 #t3 [3d] <-t2
+  - 需求评审 #t4 [1d] <-t3
+- 设计阶段 #t5
+  - 交互稿 #t6 [5d] <-t4
+! 需求冻结 #m1 [2026-09-25] <-t6`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCM — 写下大纲，得到可继续编辑的规划</title>
+    <meta
+      name="description"
+      content="面向开发者与产品经理的桌面端项目规划工具。结构化大纲输入，四种联动视图，导出为 XMind 与 Visio 中可继续编辑的文件。macOS 与 Windows，完全离线。"
+    />
+    <meta property="og:title" content="MCM — 写下大纲，得到可继续编辑的规划" />
+    <meta
+      property="og:description"
+      content="结构化大纲输入，四种联动视图，导出为 XMind 与 Visio 中可继续编辑的文件。"
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="site-head">
+      <div class="wrap head-inner">
+        <span class="brand">MCM</span>
+        <nav aria-label="主导航">
+          <a href="#why">为什么</a>
+          <a href="#how">怎么用</a>
+          <a href="#export">导出</a>
+          <a href={repo}>源码</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- 首屏：一句话说清差异化 -->
+      <section class="hero wrap">
+        <p class="eyebrow">桌面端 · macOS 与 Windows · 完全离线</p>
+        <h1>写下大纲，<br />得到能继续编辑的规划。</h1>
+        <p class="lede">
+          用一段结构化文本描述项目，MCM 解析、校验并投影成四种联动视图；
+          导出的 XMind 与 Visio 文件是<strong>真正的可编辑对象</strong>——
+          节点能改字，连线拖动形状时会跟随，而不是一张动不了的图片。
+        </p>
+
+        <div class="cta">
+          <a class="button primary" href={releases}>下载安装包</a>
+          <a class="button" href={repo}>查看源码</a>
+        </div>
+        <p class="cta-note">提供 macOS <code>.dmg</code> 与 Windows <code>.msi</code>／<code>.exe</code>，附 SHA256 校验和。</p>
+      </section>
+
+      <!-- 实测数据：给出预算对照，避免自说自话 -->
+      <section class="facts wrap" aria-label="实测指标">
+        {
+          facts.map((f) => (
+            <div class="fact">
+              <span class="fact-value">{f.value}</span>
+              <span class="fact-label">{f.label}</span>
+              <span class="fact-note">{f.note}</span>
+            </div>
+          ))
+        }
+      </section>
+
+      <!-- 问题陈述 -->
+      <section id="why" class="wrap band">
+        <h2>规划工具通常二选一</h2>
+        <div class="two-col">
+          <div>
+            <h3>纯文本清单</h3>
+            <p>
+              能 diff、能进 Git、能被脚本处理，但看不出结构——
+              依赖关系和时间安排只存在于写的人脑子里。
+            </p>
+          </div>
+          <div>
+            <h3>图形工具</h3>
+            <p>
+              结构一目了然，但数据锁在私有格式里，
+              没法版本控制，改动无从追溯。
+            </p>
+          </div>
+        </div>
+        <p class="claim">MCM 两边都要：<strong>输入即文件，文件即输入。</strong></p>
+      </section>
+
+      <!-- 语法演示 -->
+      <section id="how" class="wrap">
+        <h2>原生格式就是你写的那段文本</h2>
+        <p class="section-lede">
+          <code>.mcm</code> 文件的正文即下面这套语法，加一行版本头。
+          没有第二套格式，没有 JSON 中间层——所以它可手工编辑、可 diff、行级差异稳定。
+        </p>
+
+        <div class="demo">
+          <pre class="code"><code>{outline}</code></pre>
+          <div class="demo-notes">
+            <h3>读法</h3>
+            <dl>
+              <div><dt><code>#t1</code></dt><dd>稳定标识，重命名不影响引用</dd></div>
+              <div><dt><code>&lt;-t2</code></dt><dd>依赖前置任务</dd></div>
+              <div><dt><code>[3d]</code></dt><dd>工期，日期由依赖推导</dd></div>
+              <div><dt><code>@王芳</code></dt><dd>负责人</dd></div>
+              <div><dt><code>[x]</code></dt><dd>已完成</dd></div>
+              <div><dt><code>!</code></dt><dd>里程碑</dd></div>
+            </dl>
+            <p class="hint">
+              把 <code>&lt;-t3</code> 改成 <code>&lt;-t6</code> 造一个环，
+              问题面板会给出完整环路径，而不是只说「有循环」。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 四视图 -->
+      <section class="wrap band">
+        <h2>同一份模型，四种投影</h2>
+        <p class="section-lede">
+          视图不持有自己的数据，全部由模型推导。任一处编辑，四处同步。
+        </p>
+        <ul class="views">
+          {
+            views.map((v) => (
+              <li>
+                <h3>{v.name}</h3>
+                <p>{v.desc}</p>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <!-- 导出：核心差异化 -->
+      <section id="export" class="wrap">
+        <h2>导出物要能接着改</h2>
+        <p class="section-lede">
+          导出如果只是一张图，协作就断在那里了。所以两种格式都是按规范手写的写入器，
+          落盘前还会重新解包自检——结构不合法就不生成文件。
+        </p>
+
+        <div class="two-col">
+          <div class="card">
+            <h3>XMind</h3>
+            <p>
+              任务树是真正的脑图节点，可改字、可拖动换位；
+              <strong>依赖映射为真实连线</strong>，不是降级成文本备注。
+            </p>
+            <p class="degrade">
+              降级项（日期、负责人等 XMind 无对应字段的内容）会逐条列在导出报告里，
+              不做静默丢弃。
+            </p>
+          </div>
+          <div class="card">
+            <h3>Visio</h3>
+            <p>
+              任务是可编辑形状，连接线带动态粘连——
+              <strong>拖动形状时连线跟随</strong>。
+            </p>
+            <p class="degrade">
+              这一条是踩出来的：早期版本连线在第三方查看器里完全不渲染，
+              定位到是 master 引用与 Visio 内部函数所致，现已改为纯数值几何。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 工程取向 -->
+      <section class="wrap band">
+        <h2>做给会看实现的人</h2>
+        <ul class="plain">
+          <li>
+            <strong>Rust 内核持有唯一模型。</strong>
+            前端不存可变状态，所有编辑经 IPC 进核心、重校验后回投视图——
+            界面显示的东西不可能偏离模型里的事实。
+          </li>
+          <li>
+            <strong>校验会指出问题在哪。</strong>
+            13 条规则覆盖循环依赖、日期冲突、悬空引用等；报错带位置与完整路径。
+          </li>
+          <li>
+            <strong>性能是可回归的门槛。</strong>
+            基准测试写死预算，超了直接失败，不靠"感觉还行"。
+          </li>
+          <li>
+            <strong>撤销基于逆命令而非快照。</strong>
+            大文档下不会因为存档快照而卡顿。
+          </li>
+        </ul>
+      </section>
+
+      <section class="wrap closing">
+        <h2>拿来试试</h2>
+        <p>
+          安装包约 11 MB，装完即用，不需要账号，不联网也能跑完整流程。
+        </p>
+        <div class="cta">
+          <a class="button primary" href={releases}>下载安装包</a>
+          <a class="button" href={`${repo}/blob/main/README.md`}>先读文档</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-foot">
+      <div class="wrap foot-inner">
+        <span>MCM · MIT 许可</span>
+        <span><a href={repo}>GitHub</a></span>
+      </div>
+    </footer>
+
+    <style>
+      .site-head {
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        background: color-mix(in srgb, var(--surface) 88%, transparent);
+        backdrop-filter: blur(8px);
+        z-index: 5;
+      }
+      .head-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 60px;
+      }
+      .brand {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 19px;
+        letter-spacing: 0.02em;
+      }
+      .head-inner nav {
+        display: flex;
+        gap: var(--space-6);
+        font-size: 14px;
+      }
+      .head-inner nav a {
+        color: var(--ink-muted);
+        text-decoration: none;
+      }
+      .head-inner nav a:hover {
+        color: var(--accent);
+      }
+
+      .hero {
+        padding-block: var(--space-24) var(--space-12);
+        max-width: 860px;
+      }
+      .eyebrow {
+        margin: 0 0 var(--space-4);
+        color: var(--signal);
+        font: 600 13px/1 var(--font-mono);
+        letter-spacing: 0.06em;
+      }
+      h1 {
+        margin: 0 0 var(--space-6);
+        font-family: var(--font-display);
+        font-size: clamp(38px, 6.2vw, 68px);
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+      }
+      .lede {
+        margin: 0 0 var(--space-8);
+        font-size: clamp(17px, 2.1vw, 20px);
+        color: var(--ink-muted);
+        max-width: 60ch;
+      }
+      .lede strong {
+        color: var(--ink);
+      }
+
+      .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+      }
+      .button {
+        display: inline-block;
+        padding: var(--space-3) var(--space-6);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        color: var(--ink);
+        font-weight: 600;
+        text-decoration: none;
+        transition: border-color 0.15s ease;
+      }
+      .button:hover {
+        border-color: var(--accent);
+        color: var(--ink);
+      }
+      .button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fffdf7;
+      }
+      .button.primary:hover {
+        background: var(--accent-strong);
+        border-color: var(--accent-strong);
+        color: #fffdf7;
+      }
+      .cta-note {
+        margin: var(--space-4) 0 0;
+        font-size: 13px;
+        color: var(--ink-muted);
+      }
+
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: var(--space-6);
+        padding-block: var(--space-8);
+        border-block: 1px solid var(--line);
+      }
+      .fact {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .fact-value {
+        font: 700 27px/1.15 var(--font-mono);
+        color: var(--ink);
+      }
+      .fact-label {
+        font-size: 14px;
+      }
+      .fact-note {
+        font-size: 12px;
+        color: var(--ink-muted);
+      }
+
+      section {
+        padding-block: var(--space-16);
+      }
+      .band {
+        border-bottom: 1px solid var(--line);
+      }
+      h2 {
+        margin: 0 0 var(--space-4);
+        font-family: var(--font-display);
+        font-size: clamp(26px, 3.4vw, 36px);
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        margin: 0 0 var(--space-2);
+        font-size: 17px;
+      }
+      .section-lede {
+        margin: 0 0 var(--space-8);
+        color: var(--ink-muted);
+        max-width: 62ch;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        gap: var(--space-8);
+      }
+      .two-col p {
+        margin: 0 0 var(--space-3);
+        color: var(--ink-muted);
+      }
+      .two-col strong {
+        color: var(--ink);
+      }
+      .claim {
+        margin: var(--space-8) 0 0;
+        padding-top: var(--space-6);
+        border-top: 1px solid var(--line);
+        font-size: 19px;
+      }
+
+      .demo {
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+        gap: var(--space-8);
+        align-items: start;
+      }
+      @media (max-width: 820px) {
+        .demo {
+          grid-template-columns: 1fr;
+        }
+      }
+      .code {
+        margin: 0;
+        padding: var(--space-6);
+        background: var(--surface-raised);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        overflow-x: auto;
+        font-size: 13.5px;
+        line-height: 1.75;
+      }
+      .demo-notes dl {
+        margin: 0 0 var(--space-4);
+      }
+      .demo-notes dl > div {
+        display: flex;
+        gap: var(--space-3);
+        padding: var(--space-2) 0;
+        border-bottom: 1px solid
+          color-mix(in srgb, var(--line) 55%, transparent);
+      }
+      .demo-notes dt {
+        flex: 0 0 76px;
+      }
+      .demo-notes dd {
+        margin: 0;
+        color: var(--ink-muted);
+        font-size: 14px;
+      }
+      .hint {
+        margin: 0;
+        font-size: 14px;
+        color: var(--ink-muted);
+      }
+
+      .views {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--space-6);
+      }
+      .views li {
+        padding: var(--space-6);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+      }
+      .views p {
+        margin: 0;
+        color: var(--ink-muted);
+        font-size: 14px;
+      }
+
+      .card {
+        padding: var(--space-6);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+      }
+      .degrade {
+        font-size: 13.5px;
+        padding-top: var(--space-3);
+        border-top: 1px solid
+          color-mix(in srgb, var(--line) 55%, transparent);
+      }
+
+      .plain {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: var(--space-4);
+        max-width: 68ch;
+      }
+      .plain li {
+        padding-left: var(--space-4);
+        border-left: 2px solid var(--line);
+        color: var(--ink-muted);
+      }
+      .plain strong {
+        color: var(--ink);
+      }
+
+      .closing {
+        text-align: center;
+      }
+      .closing p {
+        color: var(--ink-muted);
+        margin: 0 0 var(--space-6);
+      }
+      .closing .cta {
+        justify-content: center;
+      }
+
+      .site-foot {
+        border-top: 1px solid var(--line);
+      }
+      .foot-inner {
+        display: flex;
+        justify-content: space-between;
+        padding-block: var(--space-6);
+        font-size: 13px;
+        color: var(--ink-muted);
+      }
+    </style>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+# site/ 自成一个 pnpm 工作区，从而与仓库根解耦。
+#
+# 这不是可有可无的整洁：若它被当作根工作区成员，Astro 依赖会写进根
+# pnpm-lock.yaml，而该文件在 release 的触发白名单内——改一次落地页
+# 就会平白发一个安装包毫无变化的新版本。
+packages:
+  - .
+
+# 与仓库根保持一致：Astro 依赖 esbuild 的构建脚本
+allowBuilds:
+  esbuild: true

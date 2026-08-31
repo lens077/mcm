@@ -41,6 +41,7 @@ STRIP_LOG = sed -E -e 's/^.*[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z //' \
                    -e 's/\^\[\[[0-9;]*m//g'
 
 .PHONY: help install dev web build build-universal bundle \
+        site-install site-dev site-build site-preview \
         fmt fmt-check lint lint-rs lint-ci test test-rs test-web \
         bench smoke gate ci \
         check-bundle measure-startup fixtures \
@@ -156,6 +157,23 @@ verify-clean-checkout: ## 模拟 CI 干净检出（先删 dist/ 再跑质量门�
 	@echo "→ 删除 dist/，模拟干净检出"
 	@rm -rf dist
 	@$(MAKE) --no-print-directory gate
+
+# ────────────────────────────── 宣传站点 ──────────────────────────────
+#
+# site/ 是独立的 Astro 项目，不在 pnpm workspace 内，也不在 release 的
+# 触发白名单里——改站点不会发新版本，符合预期。
+
+site-install: ## 安装站点依赖
+	cd site && pnpm install
+
+site-dev: ## 本地开发宣传站点
+	cd site && pnpm dev
+
+site-build: ## 构建宣传站点静态产物（site/dist）
+	cd site && pnpm install --silent && pnpm build
+
+site-preview: site-build ## 本地预览构建后的站点
+	cd site && pnpm preview
 
 # ─────────────────────────────── 发布 ───────────────────────────────
 #

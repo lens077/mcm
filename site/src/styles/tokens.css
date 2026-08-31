@@ -1,0 +1,128 @@
+/* 与应用共用同一套设计令牌（src/design/tokens.css），保证站点与产品观感一致。
+   落地页只取其中用得到的部分，并补了排版所需的尺度。 */
+
+:root {
+  --font-display: "Avenir Next", "Futura", sans-serif;
+  --font-body:
+    "Source Han Sans SC", "PingFang SC", -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+
+  --surface: #fffdf7;
+  --surface-raised: #ffffff;
+  --ink: #18211d;
+  --ink-muted: #657068;
+  --line: #c8c9bb;
+  --accent: #d84f35;
+  --accent-strong: #a92f20;
+  --signal: #16715c;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  --measure: 1120px;
+}
+
+/* 跟随系统深浅色，与应用行为一致 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1c231f;
+    --surface-raised: #242d28;
+    --ink: #edf1e9;
+    --ink-muted: #9eaaa2;
+    --line: #3d4942;
+    --accent: #ff795d;
+    --accent-strong: #ff9a82;
+    --signal: #55c7a6;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+/* 键盘可达性：焦点必须始终可见 */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--font-mono);
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: calc(-1 * var(--space-16));
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: top 0.15s ease;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: var(--space-4);
+}
