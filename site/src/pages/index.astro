@@ -3,6 +3,10 @@ import "../styles/tokens.css";
 
 // 站点是纯静态的，这些常量随发布一起更新即可。
 const repo = "https://github.com/lens077/mcm";
+
+// 资源必须带 base 前缀：站点同时部署在根路径（mcm.apikv.com）与
+// 子路径（GitHub Pages 的 /mcm）下，写死绝对路径会让后者全部 404。
+const asset = (p: string) => `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${p.replace(/^\//, "")}`;
 const releases = `${repo}/releases/latest`;
 
 // 全部取自仓库内已验证的实测结果，不写没有依据的数字。
@@ -51,7 +55,7 @@ const outline = `%mcm 1
       content="结构化大纲输入，四种联动视图，导出为 XMind 与 Visio 中可继续编辑的文件。"
     />
     <meta property="og:type" content="website" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href={asset("favicon.svg")} type="image/svg+xml" />
   </head>
 
   <body>
@@ -90,7 +94,7 @@ const outline = `%mcm 1
       <!-- 产品实拍：真实渲染，非示意图 -->
       <section class="shot-hero wrap" aria-label="产品界面">
         <img
-          src="/shots/wbs.png"
+          src={asset("shots/wbs.png")}
           alt="MCM 界面：左侧大纲文本，中间任务分解视图，右侧校验结果"
           width="2880"
           height="1800"
@@ -172,7 +176,7 @@ const outline = `%mcm 1
             views.map((v) => (
               <li>
                 <img
-                  src={`/shots/${v.key}.png`}
+                  src={asset(`shots/${v.key}.png`)}
                   alt={`${v.name}视图截图`}
                   width="2880"
                   height="1800"

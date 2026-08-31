@@ -1,0 +1,67 @@
+# 把宣传站点部署到 GitHub Pages。
+#
+# 这是**镜像**，不是主站：主站在 node1（https://mcm.apikv.com ），
+# 由 `make site-deploy` 发布。Pages 提供一个不依赖自有服务器的备份入口。
+#
+# Pages 服务在 /<repo> 子路径下，所以构建时注入 SITE_BASE=/mcm；
+# 模板里的资源用 import.meta.env.BASE_URL 拼接，不能写死绝对路径。
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+    # 只有站点本身变了才重新发布
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Pages 同时只允许一个部署；排队而不是取消，避免发布到一半被打断
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          install: false
+
+      - name: Install site deps
+        working-directory: site
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/configure-pages@v6
+        id: pages
+
+      - name: Build site
+        working-directory: site
+        env:
+          # configure-pages 给出的 base_path 即 /<repo>
+          SITE_BASE: ${{ steps.pages.outputs.base_path }}
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+        run: pnpm build
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
