@@ -277,8 +277,12 @@ make release-watch        # 跟踪构建
 
 ## 4.6 宣传站点
 
-`site/` 是 Astro 7 静态站，线上地址 https://mcm.apikv.com ，部署在 node1，
-经 Pangolin/Traefik 暴露。开发与部署见 [site/README.md](./site/README.md)。
+`site/` 是 Astro 7 静态站，两处部署：主站 https://mcm.apikv.com （node1，经
+Pangolin/Traefik）与镜像 https://lens077.github.io/mcm/ （GitHub Pages，推
+`site/` 自动发布）。开发与部署见 [site/README.md](./site/README.md)。
+
+两处路径前缀不同（根 vs `/mcm`），`site`/`base` 由环境变量注入，资源路径必须
+用 `import.meta.env.BASE_URL` 拼接，写死绝对路径会让子路径部署下图片全 404。
 
 两点容易踩的：
 
