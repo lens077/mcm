@@ -283,6 +283,20 @@ gh workflow run release.yml -f bump=minor
 > 早期版本曾同时推送 ghcr.io 容器镜像到 GitHub Packages，现已移除——对桌面
 > 应用而言那是个勉强的适配，安装包才是真正的分发渠道。
 
+## 4.6 宣传站点
+
+`site/` 是 Astro 7 静态站，线上地址 https://mcm.apikv.com ，部署在 node1，
+经 Pangolin/Traefik 暴露。开发与部署见 [site/README.md](./site/README.md)。
+
+两点容易踩的：
+
+- **`site/` 必须与根工作区解耦**（靠它自己的 `pnpm-workspace.yaml`）。否则
+  Astro 依赖进根 `pnpm-lock.yaml`，而该文件在 release 触发白名单内——
+  改落地页就会误发版本。曾试过 `.npmrc` 的 `ignore-workspace`，实测该键
+  不被 pnpm 支持。
+- **Pangolin 新建资源默认 `sso: true`**，会把访客重定向到登录页。公开站点
+  必须显式关掉。
+
 ## 5. 常用命令
 
 ```bash

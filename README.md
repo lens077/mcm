@@ -71,6 +71,10 @@ CI 在 macOS + Windows 双平台执行，全部为合入门槛：
 | 冷启动 P95 | 25 ms（预算 2000 ms） |
 | 安装包体积 | 11.3 MB（预算 25 MB） |
 
+## 网站
+
+https://mcm.apikv.com
+
 ## 下载
 
 [Releases](https://github.com/lens077/mcm/releases) 提供 macOS（`.dmg`）与
