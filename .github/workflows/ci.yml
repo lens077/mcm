@@ -1,8 +1,31 @@
 name: ci
 
 on:
+  # 只有真正影响产物的改动才跑完整门禁（编译 + 全量测试 + 双平台打包，
+  # 约 20 分钟机器时间）。改文档、Makefile、site/、脚本一律不触发。
+  #
+  # 这份白名单与 release.yml 的保持一致；两处要一起改。
   push:
+    paths: &code_paths
+      - "src/**"
+      - "src-tauri/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "index.html"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+      # 工作流自身改动要验证，否则改坏了没人拦
+      - ".github/workflows/ci.yml"
   pull_request:
+    paths: *code_paths
+  # 非代码改动想手动验证时用
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

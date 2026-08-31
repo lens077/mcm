@@ -197,15 +197,24 @@ version: ## 显示当前版本号
 bump-preview: ## 预演版本递增，不改任何文件（BUMP=patch|minor|major）
 	@node scripts/bump-version.mjs $(BUMP) --dry-run
 
-# 发版会由 CI 改写版本并提交回 main，本地落后就会与远端打架
-release: ## 手动触发发版（BUMP=patch|minor|major，默认 patch）
+# 发版 = 递增版本 + 提交 + 打标签 + 推送。
+# 推送标签才会触发 release 工作流构建 macOS 与 Windows 安装包。
+# 前置检查从严：发版是对外动作，出错的代价比多等一次高。
+release: ## 发版（BUMP=patch|minor|major，默认 patch）
 	@command -v gh >/dev/null || { echo "需要 gh CLI：brew install gh"; exit 1; }
-	@git diff --quiet || { echo "工作区有未提交改动，先提交或暂存"; exit 1; }
+	@git diff --quiet && git diff --cached --quiet || \
+	 { echo "工作区有未提交改动，先提交或暂存"; exit 1; }
 	@git fetch -q origin main && \
 	 [ "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" ] || \
 	 { echo "本地与 origin/main 不一致，先 git pull --rebase"; exit 1; }
-	gh workflow run release.yml -f bump=$(BUMP)
-	@echo "已触发（$(BUMP)）。用 make release-watch 跟踪。"
+	@new=$$(node scripts/bump-version.mjs $(BUMP)) && \
+	 cargo update -w >/dev/null 2>&1 && \
+	 git add Cargo.toml Cargo.lock src-tauri/tauri.conf.json && \
+	 git commit -q -m "chore(release): v$$new" && \
+	 git tag -a "v$$new" -m "v$$new" && \
+	 git push -q origin main && \
+	 git push -q origin "v$$new" && \
+	 echo "已发布 v$$new —— 用 make release-watch 跟踪构建"
 
 releases: ## 列出已发布版本
 	@gh release list --limit 10

@@ -231,41 +231,31 @@ Windows 上都跑它**——同一批场景 ID（S1/S3/S5/S6/S7/S8/S9/S11）构�
 
 ## 4.5 发布
 
-`.github/workflows/release.yml`：**推送到 main 且改动了真正进入安装包的文件时，
-自动递增补丁版本并发布正式版 Release**。
-
-触发用的是**白名单**（`on.push.paths`）而非 `paths-ignore`：只有 `src/`、
-`src-tauri/`、`crates/`、依赖与工具链声明、以及直接影响构建产出的配置才发版。
-文档、`Makefile`、`scripts/`、`.github/`、`tests/` 等一律不发。
-
-之所以不用黑名单：要逐个排除 `tests/`、`.claude/`、`eslint.config.js`、
-`rustfmt.toml`、`.prettierrc` 等十余项，且以后新增任何配置文件都会误触发。
-白名单的失败方向是安全的——新路径未列入只会「不发版」，而不是平白发一个
-内容毫无变化的版本。
-
-> **新增顶层源码目录时记得同步 `paths` 列表**，否则改了代码却不发版。
+**打标签才发版。** 推送 `vX.Y.Z` 形式的标签，`release.yml` 才构建 macOS 与
+Windows 安装包。普通的代码推送只跑 CI，不产生版本。
 
 ```bash
-# 手动发版并指定递增级别
-gh workflow run release.yml -f bump=minor
+make release              # patch：0.1.3 -> 0.1.4
+make release BUMP=minor   # 0.1.3 -> 0.2.0
+make release BUMP=major   # 0.1.3 -> 1.0.0
+make release-watch        # 跟踪构建
 ```
 
-流程：`plan`（递增版本 → 提交回 main）→ `build`（检出该提交、双平台打包）
-→ `publish`（校验和 + 创建 Release）。
+`make release` 一步完成：递增版本 → 提交 → 打标签 → 推送 main 与标签。
+前置检查从严（工作区必须干净、必须与 `origin/main` 一致）——发版是对外动作，
+出错代价比多等一次高。
 
-**为什么 plan 必须先提交再构建**：安装包文件名内嵌版本号，若先构建后改版本，
-产物名会停留在旧版本，与 Release tag 对不上。
+**标签为什么带 `v` 前缀**：git 标签用 `vX.Y.Z` 是生态惯例（Rust、Go 及绝大多数
+项目），GitHub Release 页面也默认这么显示；而 Cargo/npm 的 `version` 字段本身
+不带 `v`。两者分工清晰，本仓库已有的 `v0.1.0`~`v0.1.3` 就是这个形式。
 
-**不会递归触发**：GitHub 规定用 `GITHUB_TOKEN` 推送的提交不再触发工作流；
-提交信息仍带 `[skip ci]` 作为双保险。
+**标签必须与代码内版本一致**，否则 `verify` 任务直接失败。原因很实际：安装包
+文件名内嵌的是代码里声明的版本，不一致会导致产物名与 Release 标签对不上。
+所以务必用 `make release` 而不是手工 `git tag`。
 
-版本在两处声明，必须同步——`scripts/bump-version.mjs` 负责这件事，并在两者
-不一致时直接报错而非猜测：
-
-- `Cargo.toml` 的 `[workspace.package] version`
-- `src-tauri/tauri.conf.json` 的 `version`
-
-`Cargo.lock` 由 `cargo update -w --offline` 刷新，不做正则替换。
+版本在两处声明，由 `scripts/bump-version.mjs` 同步（两者不一致时直接报错）：
+`Cargo.toml` 的 `[workspace.package]` 与 `src-tauri/tauri.conf.json`。
+`Cargo.lock` 交给 `cargo update -w` 刷新。
 
 产出：`.dmg`（macOS）、`.msi` 与 NSIS `.exe`（Windows），附 `SHA256SUMS`。
 
@@ -277,11 +267,13 @@ gh workflow run release.yml -f bump=minor
 - **校验和清单不能带 `./` 前缀**，否则下载后在别的目录 `sha256sum -c` 会找不到
   文件。另注意 `find -printf` 是 GNU 扩展，macOS 上无法本地验证，别用。
 
-发布前会跑一次 `pnpm smoke`：release 二进制已由打包步骤构建，几乎零额外耗时，
-但能保证发出去的产物真能跑通共享场景清单。
+### CI 的路径过滤
 
-> 早期版本曾同时推送 ghcr.io 容器镜像到 GitHub Packages，现已移除——对桌面
-> 应用而言那是个勉强的适配，安装包才是真正的分发渠道。
+`ci.yml` 与 `release.yml` 共用同一份代码白名单：只有 `src/`、`src-tauri/`、
+`crates/`、依赖与工具链声明、以及直接影响构建产出的配置才触发。改文档、
+`Makefile`、`scripts/`、`site/` 一律不跑重活（完整门禁约 20 分钟机器时间）。
+
+**两处白名单要一起改。** 非代码改动想手动验证时用 `workflow_dispatch`。
 
 ## 4.6 宣传站点
 
