@@ -41,7 +41,7 @@ STRIP_LOG = sed -E -e 's/^.*[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z //' \
                    -e 's/\^\[\[[0-9;]*m//g'
 
 .PHONY: help install dev web build build-universal bundle \
-        site-install site-dev site-build site-preview \
+        site-install site-dev site-build site-preview site-shots site-deploy \
         fmt fmt-check lint lint-rs lint-ci test test-rs test-web \
         bench smoke gate ci \
         check-bundle measure-startup fixtures \
@@ -174,6 +174,17 @@ site-build: ## 构建宣传站点静态产物（site/dist）
 
 site-preview: site-build ## 本地预览构建后的站点
 	cd site && pnpm preview
+
+# 截图是真实渲染：场景数据出自 mcm-core，再由应用真实的前端渲染器绘制。
+site-shots: $(DIST_ENTRY) ## 重新生成站点产品截图
+	cargo run -q -p mcm-core --example dump_scenes -- \
+		site/fixtures/demo.mcm /tmp/mcm-scenes
+	node scripts/capture-screens.mjs /tmp/mcm-scenes site/public/shots
+
+site-deploy: site-build ## 部署站点到 node1
+	tar -C site/dist -czf - . | ssh node1 \
+		'rm -rf /home/docker/mcm-site/site/* && tar -C /home/docker/mcm-site/site -xzf - && docker restart mcm-site'
+	@echo "已部署 https://mcm.apikv.com"
 
 # ─────────────────────────────── 发布 ───────────────────────────────
 #

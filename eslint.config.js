@@ -5,7 +5,19 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "build", "coverage", "node_modules", "target", "src-tauri/target"] },
+  {
+    ignores: [
+      "dist",
+      "build",
+      "coverage",
+      "node_modules",
+      "target",
+      "src-tauri/target",
+      // site/ 是独立项目，自带工具链与生成物（.astro/ 里是 Astro 生成的
+      // 类型声明，不受本仓库规则约束）
+      "site",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
 

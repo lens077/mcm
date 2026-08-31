@@ -160,3 +160,36 @@ describe("scene helpers", () => {
     expect(refKey({ kind: "plan" })).toBe("plan");
   });
 });
+
+describe("fitToBounds 居中", () => {
+  const scene = (w: number, h: number): SceneGraph => ({
+    view: "dep_graph",
+    nodes: [],
+    edges: [],
+    bounds: { min_x: 0, min_y: 0, max_x: w, max_y: h },
+  });
+
+  it("宽扁内容在纵向居中，而不是贴顶", () => {
+    // 回归：依赖网络等宽高比大的内容曾被顶到左上角，画布下方大片留白
+    const vp = fitToBounds(scene(1200, 200), 800, 600);
+    const drawnH = 200 * vp.scale;
+    const top = vp.offsetY;
+    const bottom = 600 - (top + drawnH);
+    expect(Math.abs(top - bottom)).toBeLessThan(1);
+  });
+
+  it("高窄内容在横向居中", () => {
+    const vp = fitToBounds(scene(200, 1200), 800, 600);
+    const drawnW = 200 * vp.scale;
+    const left = vp.offsetX;
+    const right = 800 - (left + drawnW);
+    expect(Math.abs(left - right)).toBeLessThan(1);
+  });
+
+  it("内容仍完整落在画布内", () => {
+    const vp = fitToBounds(scene(1200, 200), 800, 600);
+    expect(vp.offsetX).toBeGreaterThanOrEqual(0);
+    expect(vp.offsetY).toBeGreaterThanOrEqual(0);
+    expect(vp.offsetX + 1200 * vp.scale).toBeLessThanOrEqual(800 + 1);
+  });
+});

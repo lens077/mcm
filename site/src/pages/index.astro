@@ -13,11 +13,13 @@ const facts = [
   { value: "491", label: "自动化测试", note: "Rust 415 · 前端 76" },
 ];
 
+// 截图由 scripts/capture-screens.mjs 生成：场景数据出自 mcm-core，
+// 再由应用真实的前端渲染器绘制——不是另画的示意图。
 const views = [
-  { name: "任务分解", desc: "层级结构与归属，一眼看清谁负责哪块。" },
-  { name: "依赖网络", desc: "分层 DAG 呈现前后置关系，环路直接标红。" },
-  { name: "时间线", desc: "依赖驱动推导日期，拖动即改期。" },
-  { name: "里程碑", desc: "关键节点与它所关联的任务。" },
+  { key: "wbs", name: "任务分解", desc: "层级结构与归属，一眼看清谁负责哪块。" },
+  { key: "graph", name: "依赖网络", desc: "分层 DAG 呈现前后置关系，环路直接标红。" },
+  { key: "timeline", name: "时间线", desc: "依赖驱动推导日期，拖动即改期。" },
+  { key: "milestones", name: "里程碑", desc: "关键节点与它所关联的任务。" },
 ];
 
 const outline = `%mcm 1
@@ -83,6 +85,17 @@ const outline = `%mcm 1
           <a class="button" href={repo}>查看源码</a>
         </div>
         <p class="cta-note">提供 macOS <code>.dmg</code> 与 Windows <code>.msi</code>／<code>.exe</code>，附 SHA256 校验和。</p>
+      </section>
+
+      <!-- 产品实拍：真实渲染，非示意图 -->
+      <section class="shot-hero wrap" aria-label="产品界面">
+        <img
+          src="/shots/wbs.png"
+          alt="MCM 界面：左侧大纲文本，中间任务分解视图，右侧校验结果"
+          width="2880"
+          height="1800"
+          loading="eager"
+        />
       </section>
 
       <!-- 实测数据：给出预算对照，避免自说自话 -->
@@ -158,6 +171,13 @@ const outline = `%mcm 1
           {
             views.map((v) => (
               <li>
+                <img
+                  src={`/shots/${v.key}.png`}
+                  alt={`${v.name}视图截图`}
+                  width="2880"
+                  height="1800"
+                  loading="lazy"
+                />
                 <h3>{v.name}</h3>
                 <p>{v.desc}</p>
               </li>
@@ -449,19 +469,43 @@ const outline = `%mcm 1
         color: var(--ink-muted);
       }
 
+      .shot-hero {
+        padding-block: 0 var(--space-12);
+      }
+      .shot-hero img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 18px 48px -24px rgb(24 33 29 / 32%);
+      }
+
       .views {
         list-style: none;
         margin: 0;
         padding: 0;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: var(--space-6);
       }
       .views li {
-        padding: var(--space-6);
         border: 1px solid var(--line);
         border-radius: var(--radius-lg);
         background: var(--surface-raised);
+        overflow: hidden;
+      }
+      .views img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-bottom: 1px solid var(--line);
+      }
+      .views h3 {
+        margin: var(--space-4) var(--space-6) var(--space-2);
+      }
+      .views p {
+        margin: 0 var(--space-6) var(--space-6);
       }
       .views p {
         margin: 0;

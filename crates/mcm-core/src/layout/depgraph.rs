@@ -13,6 +13,12 @@ use super::{NODE_HEIGHT, NODE_WIDTH};
 
 /// Horizontal distance between two ranks (layers).
 const RANK_GAP: f64 = 120.0;
+/// 折行后，带与带之间的额外留白，避免上下两带的连线视觉粘连。
+const BAND_GAP: f64 = 56.0;
+/// 折行阈值：超过这么多层就换带。
+/// 4 层 ≈ 1320 单位宽；单节点链每带高 ~104 单位，折行后宽高比约 4:1，
+/// 落在画布能舒适容纳的范围内（取 6 时实测仍有 11:1，偏扁）。
+const MAX_RANKS_PER_BAND: usize = 4;
 /// Vertical distance between two nodes inside one rank.
 const ROW_GAP: f64 = 28.0;
 /// Barycentre refinement sweeps; a small fixed count keeps layout O(n).
@@ -167,6 +173,33 @@ fn order_ranks(
     by_rank
 }
 
+/// 每带最多放几层。层数不多时不折行，保持最直观的一条横线。
+fn wrap_threshold(rank_count: usize) -> usize {
+    if rank_count <= MAX_RANKS_PER_BAND {
+        rank_count.max(1)
+    } else {
+        MAX_RANKS_PER_BAND
+    }
+}
+
+/// 每一带占多少行——取该带内最拥挤那层的行数。
+fn band_row_counts(
+    by_rank: &std::collections::BTreeMap<usize, Vec<TaskId>>,
+    wrap_after: usize,
+) -> Vec<usize> {
+    let band_count = by_rank
+        .keys()
+        .map(|r| r / wrap_after + 1)
+        .max()
+        .unwrap_or(1);
+    let mut rows = vec![0usize; band_count];
+    for (rank, row) in by_rank {
+        let band = rank / wrap_after;
+        rows[band] = rows[band].max(row.len());
+    }
+    rows
+}
+
 /// Lays out the dependency network.
 #[must_use]
 pub fn layout_depgraph(plan: &Plan) -> DepGraphLayout {
@@ -179,13 +212,24 @@ pub fn layout_depgraph(plan: &Plan) -> DepGraphLayout {
     let ranks = rank_nodes(&visible, &edges);
     let by_rank = order_ranks(&visible, &edges, &ranks);
 
+    // 长依赖链会把图铺成一条极扁的横带（实测 8 层单节点链 = 2760x124，
+    // 宽高比 22:1），画布按包围盒适配后内容缩成一条线，几乎无法阅读。
+    // 超过阈值就折行：层序不变，只是每 WRAP_AFTER 层换一「带」往下排。
+    let rank_count = by_rank.len();
+    let wrap_after = wrap_threshold(rank_count);
+    // 每一带的高度取该带内最拥挤那层的行数，避免带与带重叠。
+    let band_rows = band_row_counts(&by_rank, wrap_after);
+
     for (rank, row) in &by_rank {
+        let band = *rank / wrap_after;
+        let column = *rank % wrap_after;
+        let band_offset: usize = band_rows[..band].iter().sum();
         for (index, id) in row.iter().enumerate() {
             layout.nodes.push(DepNode {
                 id: *id,
                 rank: *rank,
-                x: *rank as f64 * (NODE_WIDTH + RANK_GAP),
-                y: index as f64 * (NODE_HEIGHT + ROW_GAP),
+                x: column as f64 * (NODE_WIDTH + RANK_GAP),
+                y: (band_offset + index) as f64 * (NODE_HEIGHT + ROW_GAP) + band as f64 * BAND_GAP,
                 w: NODE_WIDTH,
                 h: NODE_HEIGHT,
             });
@@ -226,6 +270,72 @@ pub fn layout_depgraph(plan: &Plan) -> DepGraphLayout {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 回归：长依赖链曾被铺成极扁的横带（8 层单节点链 = 2760x124，
+    /// 宽高比 22:1），画布按包围盒适配后内容缩成一条线，无法阅读。
+    #[test]
+    fn long_chains_wrap_instead_of_stretching_flat() {
+        // 一条 10 环的链，最容易触发该问题
+        let mut text = String::from("%mcm 1\n- 甲 #t1\n");
+        for n in 2..=10 {
+            text.push_str(&format!("- 任务{n} #t{n} <-t{}\n", n - 1));
+        }
+        let plan = crate::outline::parse(&text).plan;
+        let layout = layout_depgraph(&plan);
+
+        let min_x = layout
+            .nodes
+            .iter()
+            .map(|n| n.x)
+            .fold(f64::INFINITY, f64::min);
+        let max_x = layout
+            .nodes
+            .iter()
+            .map(|n| n.x + n.w)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let min_y = layout
+            .nodes
+            .iter()
+            .map(|n| n.y)
+            .fold(f64::INFINITY, f64::min);
+        let max_y = layout
+            .nodes
+            .iter()
+            .map(|n| n.y + n.h)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let ratio = (max_x - min_x) / (max_y - min_y).max(1.0);
+
+        assert!(
+            ratio < 8.0,
+            "依赖图宽高比 {ratio:.1} 过扁，适配后会缩成一条线"
+        );
+    }
+
+    #[test]
+    fn short_chains_stay_on_one_band() {
+        // 层数不多时不该折行——一条横线最直观
+        let plan = crate::outline::parse("%mcm 1\n- 甲 #t1\n- 乙 #t2 <-t1\n- 丙 #t3 <-t2\n").plan;
+        let layout = layout_depgraph(&plan);
+        let ys: std::collections::BTreeSet<i64> = layout.nodes.iter().map(|n| n.y as i64).collect();
+        assert_eq!(ys.len(), 1, "短链应排在同一行");
+    }
+
+    #[test]
+    fn wrapped_nodes_never_overlap() {
+        let mut text = String::from("%mcm 1\n- 甲 #t1\n");
+        for n in 2..=15 {
+            text.push_str(&format!("- 任务{n} #t{n} <-t{}\n", n - 1));
+        }
+        let plan = crate::outline::parse(&text).plan;
+        let layout = layout_depgraph(&plan);
+        for (i, a) in layout.nodes.iter().enumerate() {
+            for b in layout.nodes.iter().skip(i + 1) {
+                let overlap =
+                    a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+                assert!(!overlap, "节点 {:?} 与 {:?} 重叠", a.id, b.id);
+            }
+        }
+    }
     use crate::outline::parse;
 
     fn layout_of(source: &str) -> (Plan, DepGraphLayout) {

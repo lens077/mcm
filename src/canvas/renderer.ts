@@ -54,10 +54,14 @@ export function fitToBounds(scene: SceneGraph, width: number, height: number, pa
   const scale = clampScale(
     Math.min((width - pad * 2) / contentW, (height - pad * 2) / contentH, MAX_SCALE),
   );
+  // 等比缩放后，较短的那一轴会有富余；把内容居中而不是顶到左上角。
+  // 依赖网络这类宽扁内容尤其明显——不居中会孤零零贴在顶边。
+  const slackX = Math.max(0, width - contentW * scale);
+  const slackY = Math.max(0, height - contentH * scale);
   return {
     scale,
-    offsetX: pad - scene.bounds.min_x * scale,
-    offsetY: pad - scene.bounds.min_y * scale,
+    offsetX: slackX / 2 - scene.bounds.min_x * scale,
+    offsetY: slackY / 2 - scene.bounds.min_y * scale,
   };
 }
 
