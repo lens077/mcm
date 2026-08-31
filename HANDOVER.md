@@ -333,7 +333,10 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
 ### 6.2 Windows 平台
 
-本次开发全程在 macOS。以下从未在 Windows 上执行过：
+CI 的 windows-latest 全程通过（编译、417 测试、打包、场景冒烟、体积与冷启动
+预算），`.msi` 与 NSIS `.exe` 已真实产出并随每次发版发布。
+
+仍未做的是**真人在 Windows 桌面上实际使用**：
 
 - WebDriver 套件（`.github/workflows/e2e-windows.yml`，手动触发）：已写好但
   从未运行，wdio 依赖也未进主依赖树；首次跑很可能需要调整选择器与超时
