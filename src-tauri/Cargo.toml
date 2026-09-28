@@ -17,6 +17,8 @@ serde_json.workspace = true
 tauri = { version = "2.11.5", features = [] }
 tauri-plugin-dialog = "2.4.1"
 zip.workspace = true
+# 仅用于用户显式点击后下载高精度 OCR 模型；走系统 TLS（macOS Security / Windows SChannel）与系统根证书。
+ureq = { version = "3.4.2", default-features = false, features = ["native-tls"] }
 
 [features]
 default = ["custom-protocol"]

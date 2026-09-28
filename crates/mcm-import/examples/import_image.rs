@@ -26,7 +26,8 @@ fn main() {
 
     if let Some(out) = overlay {
         let img = mcm_import::raster::decode(&bytes).unwrap();
-        let a = mcm_import::analyse_image(&img).unwrap();
+        let engine = mcm_import::OcrEngine::shared().unwrap();
+        let a = mcm_import::analyse_image(&img, engine).unwrap();
         let mut canvas = img.clone();
         let mut rect = |r: mcm_import::raster::Rect, c: [u8; 3], t: i32| {
             for k in 0..t {

@@ -1,18 +1,25 @@
-//! Local OCR: PaddleOCR PP-OCRv6 tiny models on the pure-Rust `rten` engine.
+//! Local OCR: PaddleOCR PP-OCRv6 models on the pure-Rust `rten` engine.
 //!
-//! The models are compiled into the binary, so recognition works offline and
-//! identically on every platform (宪法 I、本地优先). Selection rationale and
-//! the benchmark behind it: `docs/image-import.md`.
+//! Two recognizers share one detector:
+//! - [`OcrModel::Fast`] (default): PP-OCRv6 tiny, compiled into the binary,
+//!   works offline out of the box.
+//! - [`OcrModel::Accurate`]: PP-OCRv6 small, 21 MB, downloaded on request
+//!   and verified against [`crate::models::ACCURATE_FILES`].
+//!
+//! Both behave identically on every platform (宪法 I). Selection rationale
+//! and benchmarks: `docs/image-import.md`.
 
 mod det;
 mod rec;
 
+use std::path::Path;
 use std::sync::OnceLock;
 
 use image::RgbImage;
 use rten::Model;
 
 use crate::ImportError;
+use crate::models::{ACCURATE_FILES, read_verified};
 use crate::raster::Rect;
 
 pub use rec::Charset;
@@ -35,6 +42,18 @@ pub struct TextLine {
     pub confidence: f32,
 }
 
+/// Which recognizer reads the text. Detection is the same for both.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OcrModel {
+    /// PP-OCRv6 tiny: built in, about 0.3 s for a typical screenshot.
+    #[default]
+    Fast,
+    /// PP-OCRv6 small: separate download, about twice as slow, fewer
+    /// case and punctuation slips.
+    Accurate,
+}
+
 pub struct OcrEngine {
     det: Model,
     rec: Model,
@@ -52,6 +71,29 @@ impl OcrEngine {
             .get_or_init(|| OcrEngine::load().map_err(|e| e.to_string()))
             .as_ref()
             .map_err(|e| ImportError::Ocr(e.clone()))
+    }
+
+    /// Engine with the downloaded PP-OCRv6 small recognizer from `dir`.
+    /// Every file is checked against its pinned digest before use, so a
+    /// truncated or tampered download is refused rather than misread.
+    ///
+    /// # Errors
+    /// [`ImportError::Model`] when files are missing or do not match.
+    pub fn accurate(dir: &Path) -> Result<Self, ImportError> {
+        let [rec_file, dict_file] = &ACCURATE_FILES;
+        let rec_bytes = read_verified(dir, rec_file)?;
+        let dict_bytes = read_verified(dir, dict_file)?;
+        let dict = String::from_utf8(dict_bytes)
+            .map_err(|_| ImportError::Model(format!("{} 不是 UTF-8 文本", dict_file.name)))?;
+        let det = Model::load_static_slice(DET_ONNX)
+            .map_err(|e| ImportError::Ocr(format!("检测模型加载失败：{e}")))?;
+        let rec = Model::load(rec_bytes)
+            .map_err(|e| ImportError::Model(format!("高精度识别模型加载失败：{e}")))?;
+        Ok(Self {
+            det,
+            rec,
+            charset: Charset::from_dict(&dict),
+        })
     }
 
     fn load() -> Result<Self, ImportError> {

@@ -7,6 +7,8 @@ import type {
   ExportPrecheck,
   ExportReport,
   ExternalCheck,
+  OcrModel,
+  OcrModelStatus,
   Prefs,
   SaveResult,
   SearchMatch,
@@ -51,5 +53,9 @@ export const ipc = {
   exportPrecheck: () => call<ExportPrecheck>("export_precheck"),
   exportRun: (format: ExportFormat, path: string) =>
     call<ExportReport>("export_run", { format, path }),
-  diagramImport: (path: string) => call<DiagramImport>("diagram_import", { path }),
+  diagramImport: (path: string, model: OcrModel) =>
+    call<DiagramImport>("diagram_import", { path, model }),
+  ocrModelStatus: () => call<OcrModelStatus>("ocr_model_status"),
+  ocrModelDownload: () => call<OcrModelStatus>("ocr_model_download"),
+  ocrModelRemove: () => call<OcrModelStatus>("ocr_model_remove"),
 };

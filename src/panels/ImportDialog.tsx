@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { ipc } from "../ipc/client";
-import type { DiagramImport } from "../ipc/types";
+import type { DiagramImport, DownloadProgress, OcrModel, OcrModelStatus } from "../ipc/types";
 import { summariseImport } from "./import-summary";
+import { megabytes, modelOptions, modelReady, progressLabel } from "./ocr-model";
 
 interface Props {
   open: boolean;
@@ -15,13 +17,67 @@ const FILTERS = [
   { name: "图片或 archify HTML", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "html", "htm"] },
 ];
 
+function messageOf(raw: unknown): string {
+  return raw instanceof Object && "message" in raw ? String(raw.message) : String(raw);
+}
+
 export function ImportDialog({ open, onClose, onLoad }: Props) {
   const [result, setResult] = useState<DiagramImport | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState<OcrModel>("fast");
+  const [status, setStatus] = useState<OcrModelStatus | null>(null);
+  const [progress, setProgress] = useState<DownloadProgress | null>(null);
+
+  // The chosen model is a preference; the install state comes from the core.
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const [prefs, current] = await Promise.all([ipc.prefsGet(), ipc.ocrModelStatus()]);
+        setModel(prefs.ocr_model ?? "fast");
+        setStatus(current);
+      } catch (raw) {
+        setError(messageOf(raw));
+      }
+    })();
+  }, [open]);
 
   if (!open) return null;
+
+  const choose = async (next: OcrModel) => {
+    setModel(next);
+    setResult(null);
+    const prefs = await ipc.prefsGet();
+    await ipc.prefsSet({ ...prefs, ocr_model: next });
+  };
+
+  const download = async () => {
+    setError(null);
+    setProgress({ done: 0, total: status?.accurate_download_bytes ?? 0 });
+    const stop = await listen<DownloadProgress>("ocr-model-download", (event) => {
+      setProgress(event.payload);
+    });
+    try {
+      setStatus(await ipc.ocrModelDownload());
+    } catch (raw) {
+      setError(messageOf(raw));
+    } finally {
+      stop();
+      setProgress(null);
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm("删除已下载的高精度模型？之后可随时重新下载。")) return;
+    try {
+      setStatus(await ipc.ocrModelRemove());
+      await choose("fast");
+    } catch (raw) {
+      setError(messageOf(raw));
+    }
+  };
 
   const pick = async () => {
     setError(null);
@@ -31,10 +87,9 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
     setResult(null);
     setBusy(true);
     try {
-      setResult(await ipc.diagramImport(selected));
+      setResult(await ipc.diagramImport(selected, model));
     } catch (raw) {
-      const message = raw instanceof Object && "message" in raw ? String(raw.message) : String(raw);
-      setError(message);
+      setError(messageOf(raw));
     } finally {
       setBusy(false);
     }
@@ -50,6 +105,8 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
   };
 
   const summary = result ? summariseImport(result.report) : null;
+  const downloading = progress !== null || status?.downloading === true;
+  const accurateMissing = !modelReady("accurate", status);
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -68,6 +125,75 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
             直接读取其中的结构标注，结果精确。载入后可继续修改，或导出为 XMind /
             Visio。文件不会离开本机。
           </p>
+
+          <fieldset className="format-picker">
+            <legend>识别模型（仅用于截图）</legend>
+            {modelOptions(status).map((option) => (
+              <label key={option.id} className="format-option">
+                <input
+                  type="radio"
+                  name="ocr-model"
+                  value={option.id}
+                  checked={model === option.id}
+                  disabled={busy}
+                  onChange={() => {
+                    void choose(option.id);
+                  }}
+                />
+                <span>
+                  <strong>{option.label}</strong>
+                  <em>{option.blurb}</em>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          {model === "accurate" && accurateMissing && (
+            <div className="model-download">
+              <p>
+                高精度模型不随安装包分发。点击下载后从 ModelScope 获取，失败时改用
+                GitHub，完成后校验 SHA-256。只在你点击时联网。
+              </p>
+              {progress ? (
+                <p className="empty-hint" aria-live="polite">
+                  {progressLabel(progress)}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="toolbar-button"
+                  onClick={() => {
+                    void download();
+                  }}
+                  disabled={downloading}
+                >
+                  下载高精度模型（{status ? megabytes(status.accurate_download_bytes) : "约 20 MB"}
+                  ）
+                </button>
+              )}
+              {status && (
+                <p className="hint-block">
+                  无法联网时，可把 pp-ocrv6_small_rec.onnx 与 ppocrv6_dict.txt 复制到：
+                  <code>{status.accurate_dir}</code>
+                </p>
+              )}
+            </div>
+          )}
+
+          {model === "accurate" && !accurateMissing && (
+            <p className="hint-block">
+              高精度模型已就绪。
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => {
+                  void remove();
+                }}
+              >
+                删除模型
+              </button>
+            </p>
+          )}
 
           {source && <p className="export-path">{source}</p>}
           {busy && <p className="empty-hint">识别中…</p>}
@@ -109,7 +235,7 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
             onClick={() => {
               void pick();
             }}
-            disabled={busy}
+            disabled={busy || downloading}
           >
             {result ? "换一个文件" : "选择文件…"}
           </button>

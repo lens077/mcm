@@ -45,7 +45,10 @@
 | `export_run` | `{format: "xmind"\|"vsdx", path}` | `ExportReport` | 见两份导出契约；I/O 失败 → `E_EXPORT_IO`（含重试指引） |
 | `prefs_get` / `prefs_set` | `{...}` | `{...}` | 主题、最近文件、按文件视图状态（不入 `.mcm`） |
 | `app_close_check` | — | `{dirty}` | 关闭前脏检查（FR-016 提示由前端呈现） |
-| `diagram_import` | `{path}` | `{outline, report: ImportReport, elapsed_ms}` | 把架构图图片（PNG/JPEG/WebP/BMP，本地 OCR）或 archify HTML（`.html`/`.htm`，读取语义标注）转为大纲文本；**不改动会话**，由前端决定是否载入为新规划。读不到文件 → `E_FILE_IO`；解码/识别失败、HTML 无 archify 标注 → `E_IMPORT`。见 [docs/image-import.md](../../../docs/image-import.md) |
+| `diagram_import` | `{path, model?: "fast"\|"accurate"}` | `{outline, report: ImportReport, elapsed_ms}` | 把架构图图片（PNG/JPEG/WebP/BMP，本地 OCR）或 archify HTML（`.html`/`.htm`，读取语义标注）转为大纲文本；**不改动会话**，由前端决定是否载入为新规划。读不到文件 → `E_FILE_IO`；解码/识别失败、HTML 无 archify 标注 → `E_IMPORT`。`model` 只对图片生效，缺省为 `fast`；选 `accurate` 但模型未下载 → `E_MODEL_MISSING`。见 [docs/image-import.md](../../../docs/image-import.md) |
+| `ocr_model_status` | — | `OcrModelStatus` | `{accurate_installed, accurate_download_bytes, accurate_dir, downloading}` |
+| `ocr_model_download` | — | `OcrModelStatus` | **唯一的联网命令**，仅由用户点击触发；逐文件校验 SHA-256，按镜像顺序回退。进度经事件 `ocr-model-download` `{done, total}` 推送。失败 → `E_DOWNLOAD`；重复触发 → `E_BUSY` |
+| `ocr_model_remove` | — | `OcrModelStatus` | 删除已下载的高精度模型；下载中 → `E_BUSY` |
 
 ## 错误码
 
@@ -57,6 +60,9 @@
 | `E_BAD_TARGET` | 编辑命令引用不存在元素 |
 | `E_EXPORT_IO` | 导出目标不可写/被目标工具占用（spec Edge case） |
 | `E_IMPORT` | 图片无法解码、OCR 推理失败或图中没有可识别内容 |
+| `E_MODEL_MISSING` | 选择了高精度模型，但模型未下载或校验不符 |
+| `E_DOWNLOAD` | 所有下载源都失败（message 列出每个源的原因） |
+| `E_BUSY` | 高精度模型正在下载，暂不能再次下载或删除 |
 | `E_INTERNAL` | 其余内部错误（附诊断 details，日志落盘） |
 
 ## 性能预算（宪法 II，criterion + 前端计时守护）

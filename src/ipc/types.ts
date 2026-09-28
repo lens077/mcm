@@ -105,10 +105,28 @@ export interface SaveResult {
   saved: boolean;
 }
 
+/** OCR recognizer for image import (mirrors `mcm_import::OcrModel`). */
+export type OcrModel = "fast" | "accurate";
+
 export interface Prefs {
   theme?: string | null;
   recent_files: string[];
   view_state: Record<string, unknown>;
+  ocr_model?: OcrModel;
+}
+
+export interface OcrModelStatus {
+  accurate_installed: boolean;
+  accurate_download_bytes: number;
+  /** Where the model files live; offline users can copy them here. */
+  accurate_dir: string;
+  downloading: boolean;
+}
+
+/** Payload of the `ocr-model-download` event. */
+export interface DownloadProgress {
+  done: number;
+  total: number;
 }
 
 export interface SearchMatch {
@@ -151,6 +169,9 @@ export type ErrorCode =
   | "E_BAD_TARGET"
   | "E_EXPORT_IO"
   | "E_IMPORT"
+  | "E_MODEL_MISSING"
+  | "E_DOWNLOAD"
+  | "E_BUSY"
   | "E_INTERNAL";
 
 export interface CommandError {

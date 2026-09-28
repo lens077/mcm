@@ -11,6 +11,7 @@
 pub mod connectors;
 pub mod diagram;
 pub mod html;
+pub mod models;
 pub mod ocr;
 pub mod raster;
 pub mod shapes;
@@ -19,6 +20,7 @@ pub mod to_plan;
 use std::time::Instant;
 
 pub use diagram::Diagram;
+pub use ocr::{OcrEngine, OcrModel};
 pub use to_plan::ImportReport;
 
 /// Why an import could not produce an outline.
@@ -32,6 +34,8 @@ pub enum ImportError {
     Empty,
     #[error("{0}")]
     Unsupported(String),
+    #[error("{0}")]
+    Model(String),
 }
 
 /// Result of importing one diagram.
@@ -53,12 +57,15 @@ pub struct ImageAnalysis {
     pub diagram: Diagram,
 }
 
-/// Run OCR and shape analysis on decoded pixels.
+/// Run OCR (with `engine`) and shape analysis on decoded pixels.
 ///
 /// # Errors
 /// OCR engine failures.
-pub fn analyse_image(img: &image::RgbImage) -> Result<ImageAnalysis, ImportError> {
-    let text = ocr::OcrEngine::shared()?.read(img)?;
+pub fn analyse_image(
+    img: &image::RgbImage,
+    engine: &OcrEngine,
+) -> Result<ImageAnalysis, ImportError> {
+    let text = engine.read(img)?;
     let paper = raster::background(img);
     let text_rects: Vec<raster::Rect> = text.iter().map(|t| t.rect).collect();
     let ink = shapes::InkMap::new(img, paper, &text_rects);
@@ -124,14 +131,27 @@ fn drop_chrome(
     (kept, links)
 }
 
-/// Import a PNG/JPEG/WebP/BMP diagram as an outline titled `title`.
+/// Import a PNG/JPEG/WebP/BMP diagram with the built-in fast recognizer.
 ///
 /// # Errors
 /// Undecodable bytes, OCR failure, or an image with nothing recognisable.
 pub fn import_image(bytes: &[u8], title: &str) -> Result<Imported, ImportError> {
+    import_image_with(bytes, title, OcrEngine::shared()?)
+}
+
+/// Import a diagram image using a specific OCR engine (e.g. the accurate one
+/// from [`OcrEngine::accurate`]).
+///
+/// # Errors
+/// Undecodable bytes, OCR failure, or an image with nothing recognisable.
+pub fn import_image_with(
+    bytes: &[u8],
+    title: &str,
+    engine: &OcrEngine,
+) -> Result<Imported, ImportError> {
     let started = Instant::now();
     let img = raster::decode(bytes)?;
-    let analysis = analyse_image(&img)?;
+    let analysis = analyse_image(&img, engine)?;
     if analysis.diagram.nodes.is_empty() && analysis.text.is_empty() {
         return Err(ImportError::Empty);
     }

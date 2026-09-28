@@ -3,8 +3,10 @@
 #![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
+use crate::ocr_models;
 use crate::prefs::{self, Prefs};
 use crate::watch::{ExternalChange, FileWatch};
 use mcm_core::edit::EditCommand;
@@ -12,6 +14,7 @@ use mcm_core::scene::SceneGraph;
 use mcm_core::session::SearchMatch;
 use mcm_core::{Session, SessionError, SessionState, ValidationIssue};
 use mcm_export::{ExportFormat, ExportReport};
+use mcm_import::{OcrEngine, OcrModel};
 use serde::{Deserialize, Serialize};
 
 /// Error envelope shared by every command (contracts/ipc-commands.md §通用约定).
@@ -90,6 +93,10 @@ pub struct AppState {
     pub watch: FileWatch,
     /// App data directory holding `prefs.json`.
     pub data_dir: Mutex<PathBuf>,
+    /// Accurate OCR engine, loaded (and digest-verified) on first use.
+    pub accurate_ocr: Mutex<Option<Arc<OcrEngine>>>,
+    /// Set while the accurate model is being downloaded.
+    pub downloading: AtomicBool,
 }
 
 impl AppState {
@@ -99,6 +106,35 @@ impl AppState {
             session: Mutex::new(Session::new()),
             watch: FileWatch::new(),
             data_dir: Mutex::new(default_data_dir()),
+            accurate_ocr: Mutex::new(None),
+            downloading: AtomicBool::new(false),
+        }
+    }
+
+    fn accurate_engine(&self) -> CommandResult<Arc<OcrEngine>> {
+        let mut cached = self
+            .accurate_ocr
+            .lock()
+            .map_err(|_| CommandError::new("E_INTERNAL", "OCR 状态已损坏，请重启应用"))?;
+        if let Some(engine) = cached.as_ref() {
+            return Ok(Arc::clone(engine));
+        }
+        let dir = ocr_models::accurate_dir(&self.data_dir());
+        let engine = Arc::new(
+            OcrEngine::accurate(&dir)
+                .map_err(|error| CommandError::new("E_MODEL_MISSING", error.to_string()))?,
+        );
+        *cached = Some(Arc::clone(&engine));
+        Ok(engine)
+    }
+
+    fn ocr_status(&self) -> OcrModelStatus {
+        let dir = ocr_models::accurate_dir(&self.data_dir());
+        OcrModelStatus {
+            accurate_installed: mcm_import::models::accurate_installed(&dir),
+            accurate_download_bytes: mcm_import::models::accurate_download_size(),
+            accurate_dir: dir.display().to_string(),
+            downloading: self.downloading.load(Ordering::SeqCst),
         }
     }
 
@@ -332,11 +368,23 @@ pub fn export_run(
 /// Runs off the UI thread (OCR takes a few hundred ms) and does not touch the
 /// session: the caller decides whether to load the outline into a new plan.
 #[tauri::command(async)]
-pub fn diagram_import(path: String) -> CommandResult<DiagramImport> {
-    import_file(Path::new(&path))
+pub fn diagram_import(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    model: Option<OcrModel>,
+) -> CommandResult<DiagramImport> {
+    import_file(Path::new(&path), model.unwrap_or_default(), || {
+        state.accurate_engine()
+    })
 }
 
-fn import_file(path: &Path) -> CommandResult<DiagramImport> {
+/// `accurate` is only called for images with the accurate model selected,
+/// so HTML imports never load (or require) the downloaded model.
+fn import_file(
+    path: &Path,
+    model: OcrModel,
+    accurate: impl FnOnce() -> CommandResult<Arc<OcrEngine>>,
+) -> CommandResult<DiagramImport> {
     let bytes = std::fs::read(path).map_err(|error| {
         CommandError::new("E_FILE_IO", format!("无法读取 {}：{error}", path.display()))
     })?;
@@ -350,6 +398,8 @@ fn import_file(path: &Path) -> CommandResult<DiagramImport> {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm"));
     let imported = if is_html {
         mcm_import::import_html(&bytes, &title)
+    } else if model == OcrModel::Accurate {
+        mcm_import::import_image_with(&bytes, &title, accurate()?.as_ref())
     } else {
         mcm_import::import_image(&bytes, &title)
     }
@@ -359,6 +409,75 @@ fn import_file(path: &Path) -> CommandResult<DiagramImport> {
         report: imported.report,
         elapsed_ms: imported.elapsed_ms,
     })
+}
+
+/// Whether the accurate OCR model is installed, and where.
+#[tauri::command]
+pub fn ocr_model_status(state: tauri::State<'_, AppState>) -> CommandResult<OcrModelStatus> {
+    Ok(state.ocr_status())
+}
+
+/// Download the accurate OCR model (explicit user action only). Emits
+/// `ocr-model-download` events with `{done, total}` bytes.
+#[tauri::command(async)]
+pub fn ocr_model_download(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> CommandResult<OcrModelStatus> {
+    use tauri::Emitter;
+
+    if state.downloading.swap(true, Ordering::SeqCst) {
+        return Err(CommandError::new("E_BUSY", "高精度模型正在下载中"));
+    }
+    let dir = ocr_models::accurate_dir(&state.data_dir());
+    let mut last_percent = u64::MAX;
+    let result = ocr_models::download(
+        &dir,
+        &mcm_import::models::ACCURATE_FILES,
+        &mcm_import::models::ACCURATE_MIRRORS,
+        |done, total| {
+            // One event per percent is plenty for a progress bar.
+            let percent = done * 100 / total.max(1);
+            if percent != last_percent {
+                last_percent = percent;
+                let _ = app.emit(
+                    "ocr-model-download",
+                    serde_json::json!({ "done": done, "total": total }),
+                );
+            }
+        },
+    );
+    state.downloading.store(false, Ordering::SeqCst);
+    result.map_err(|message| CommandError::new("E_DOWNLOAD", message))?;
+    Ok(state.ocr_status())
+}
+
+/// Delete the downloaded accurate model to free disk space.
+#[tauri::command]
+pub fn ocr_model_remove(state: tauri::State<'_, AppState>) -> CommandResult<OcrModelStatus> {
+    if state.downloading.load(Ordering::SeqCst) {
+        return Err(CommandError::new("E_BUSY", "高精度模型正在下载中"));
+    }
+    if let Ok(mut cached) = state.accurate_ocr.lock() {
+        *cached = None;
+    }
+    let dir = ocr_models::accurate_dir(&state.data_dir());
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir).map_err(|error| {
+            CommandError::new("E_FILE_IO", format!("无法删除 {}：{error}", dir.display()))
+        })?;
+    }
+    Ok(state.ocr_status())
+}
+
+/// Payload for `ocr_model_status` / `ocr_model_download` / `ocr_model_remove`.
+#[derive(Debug, Clone, Serialize)]
+pub struct OcrModelStatus {
+    pub accurate_installed: bool,
+    pub accurate_download_bytes: u64,
+    /// Where the model files live; users without network can copy them here.
+    pub accurate_dir: String,
+    pub downloading: bool,
 }
 
 /// Payload for `diagram_import`.
@@ -694,11 +813,36 @@ mod tests {
         assert!(text.contains(" #t1"), "{text}");
     }
 
+    fn no_accurate() -> CommandResult<Arc<OcrEngine>> {
+        Err(CommandError::new("E_MODEL_MISSING", "not installed"))
+    }
+
+    #[test]
+    fn accurate_import_without_the_model_says_so() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../crates/mcm-import/fixtures/archify-go-service.png");
+        let error = import_file(&fixture, OcrModel::Accurate, no_accurate).unwrap_err();
+        assert_eq!(error.code, "E_MODEL_MISSING");
+    }
+
+    #[test]
+    fn ocr_status_reports_a_missing_accurate_model() {
+        let dir = std::env::temp_dir().join(format!("mcm-ocr-status-{}", std::process::id()));
+        let state = AppState::new();
+        *state.data_dir.lock().unwrap() = dir.clone();
+        let status = state.ocr_status();
+        assert!(!status.accurate_installed);
+        assert!(status.accurate_download_bytes > 21_000_000);
+        assert!(status.accurate_dir.starts_with(&dir.display().to_string()));
+        let error = state.accurate_engine().err().expect("model is missing");
+        assert_eq!(error.code, "E_MODEL_MISSING");
+    }
+
     #[test]
     fn diagram_import_reads_an_image_into_outline_text() {
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../crates/mcm-import/fixtures/archify-go-service.png");
-        let imported = import_file(&fixture).expect("import");
+        let imported = import_file(&fixture, OcrModel::Fast, no_accurate).expect("import");
         assert!(
             imported
                 .outline
@@ -712,7 +856,8 @@ mod tests {
     fn diagram_import_reads_archify_html_by_extension() {
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../crates/mcm-import/fixtures/archify-go-service.html");
-        let imported = import_file(&fixture).expect("import");
+        // HTML never needs the OCR model, even when "accurate" is selected.
+        let imported = import_file(&fixture, OcrModel::Accurate, no_accurate).expect("import");
         assert!(imported.outline.starts_with("%mcm 1\n%title Go 服务分层\n"));
         assert_eq!(imported.report.dependencies, 11);
     }
@@ -723,14 +868,19 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("plain.html");
         std::fs::write(&file, "<html><body><p>hi</p></body></html>").unwrap();
-        let error = import_file(&file).unwrap_err();
+        let error = import_file(&file, OcrModel::Fast, no_accurate).unwrap_err();
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(error.code, "E_IMPORT");
     }
 
     #[test]
     fn diagram_import_surfaces_unreadable_files() {
-        let missing = import_file(Path::new("/definitely/not/here.png")).unwrap_err();
+        let missing = import_file(
+            Path::new("/definitely/not/here.png"),
+            OcrModel::Fast,
+            no_accurate,
+        )
+        .unwrap_err();
         assert_eq!(missing.code, "E_FILE_IO");
     }
 

@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod ocr_models;
 mod prefs;
 mod selftest;
 mod watch;
@@ -36,6 +37,9 @@ fn main() {
             commands::export_precheck,
             commands::export_run,
             commands::diagram_import,
+            commands::ocr_model_status,
+            commands::ocr_model_download,
+            commands::ocr_model_remove,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run MCM desktop app");

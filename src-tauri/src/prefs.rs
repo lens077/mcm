@@ -20,6 +20,10 @@ pub struct Prefs {
     /// Per-file UI state (last view, zoom, collapsed nodes), keyed by path.
     #[serde(default)]
     pub view_state: BTreeMap<String, serde_json::Value>,
+    /// OCR recognizer used for image import; `fast` unless the user picks
+    /// the downloadable accurate one.
+    #[serde(default)]
+    pub ocr_model: mcm_import::OcrModel,
 }
 
 impl Prefs {

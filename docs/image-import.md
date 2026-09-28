@@ -45,8 +45,8 @@ XMind、Visio。入口是工具栏的「导入图表」，实现位于 `crates/m
 | [oar-ocr](https://github.com/GreatV/oar-ocr)（ONNX Runtime） | 功能完整，但链接 ONNX Runtime 后二进制增加约 20 MB，只作为基准 |
 | **PaddleOCR 模型 + [rten](https://github.com/robertknight/rten)** | 纯 Rust 推理，二进制约增加 4 MB，可直接加载 ONNX，支持动态形状。**采用** |
 
-模型选 PP-OCRv6 tiny（检测 1.7 MiB，识别 4.3 MiB，Apache-2.0），来源和校验和见
-`crates/mcm-import/models/README.md`。
+模型用 PaddleOCR PP-OCRv6（Apache-2.0）：检测固定用 tiny（1.7 MiB），识别模型
+可选，见下方「两种识别模型」。来源和校验和见 `crates/mcm-import/models/README.md`。
 
 ### 基准
 
@@ -69,11 +69,38 @@ XMind、Visio。入口是工具栏的「导入图表」，实现位于 `crates/m
   960 会让小字几乎全部丢失。因此检测时不缩小，只在短边不足 736 px 时放大。
 - tiny 剩下的错误集中在大小写和标点上（`PostgresQL`、`sqLc`、`discovery://` 少一个
   `/`），不影响结构识别。
-- small 识别模型能做到全对，但要多占 16 MiB，安装包会超出 25 MB 预算，耗时也翻倍。
-  如果以后放宽预算，可以直接替换，更换步骤见模型 README。
+- small 识别模型能做到全对，但多占 16 MiB、耗时翻倍，打进安装包会超出 25 MB 预算。
+  所以两种都提供：tiny 内置作为默认，small 按需下载。
 
 同一张图的整条导入流程（OCR、方框、箭头、生成大纲）耗时约 380 ms。截图和对应的
 archify HTML 导入后，11 条箭头完全一致，由 `tests/html_fixture.rs` 守护。
+
+## 两种识别模型
+
+| | 快速（默认） | 高精度 |
+|---|---|---|
+| 识别模型 | PP-OCRv6 tiny，4.3 MiB | PP-OCRv6 small，20.2 MiB |
+| 获取 | 编进二进制 | 导入对话框里点「下载」 |
+| 本测试图 | 23/26，315 ms | 26/26，670 ms |
+
+检测模型、方框和箭头识别两者完全相同，所以切换模型只会改变文字，不会改变结构。
+`tests/accurate_model.rs` 检查了这一点：两种模型在测试图上得到的节点数、分组数和依赖数一致。
+选择保存在偏好文件 `prefs.json` 的 `ocr_model` 字段（`fast` / `accurate`）。
+导入 HTML 时不用 OCR，这个选项对 HTML 不起作用。
+
+### 下载与校验
+
+- **只在用户点击时联网**，符合宪法「网络能力是显式可选项，默认关闭」。
+- 下载源按顺序尝试：ModelScope（`greatv/oar-ocr`，国内快）、GitHub
+  （`GreatV/oar-ocr` v0.7.0 release）。一个源失败或校验不符就换下一个。
+- 每个文件都校验大小和 SHA-256（固定在 `mcm_import::models::ACCURATE_FILES`），
+  先写 `.part` 再改名，所以中断或被篡改的下载不会被当成已安装。
+- 每次加载模型时会再校验一次摘要，文件事后损坏也会被拒绝，并提示重新下载。
+- 存放位置：`<应用数据目录>/models/pp-ocrv6-small/`，对话框里会显示完整路径。
+  离线环境可以手动把 `pp-ocrv6_small_rec.onnx` 和 `ppocrv6_dict.txt` 放进去。
+- 对话框里可以删除已下载的模型，删除后自动切回快速模型。
+- HTTP 客户端是 ureq，走系统 TLS（macOS Security.framework / Windows SChannel）
+  和系统根证书，不引入额外的加密库。
 
 ## 识别方框和箭头的做法
 
@@ -99,6 +126,13 @@ cargo run --release -p mcm-import --example import_image -- 图.png overlay.png
 cargo run --release -p mcm-import --example ocr_dump -- 图.png
 # archify HTML
 cargo run --release -p mcm-import --example import_html -- 图.html
+```
+
+高精度模型的测试默认跳过（模型不入库），下载后手动运行：
+
+```bash
+MCM_ACCURATE_MODEL_DIR=<模型目录> cargo test -p mcm-import -- --ignored
+cargo test -p mcm-app real_mirrors -- --ignored   # 真实访问两个下载源
 ```
 
 `cargo test` 在 debug 构建下运行。工作区 `Cargo.toml` 对 rten 和图像解码相关依赖
