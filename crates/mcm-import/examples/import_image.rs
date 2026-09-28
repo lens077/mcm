@@ -56,8 +56,8 @@ fn main() {
             rect(f.rect, [255, 0, 255], 3);
         }
         for e in &a.diagram.edges {
-            let (ax, ay) = a.diagram.nodes[e.from].rect.center();
-            let (bx, by) = a.diagram.nodes[e.to].rect.center();
+            let (ax, ay) = a.diagram.rect_of(e.from).center();
+            let (bx, by) = a.diagram.rect_of(e.to).center();
             let n = (ax - bx).abs().max((ay - by).abs()).max(1);
             for i in 0..=n {
                 let x = ax + (bx - ax) * i / n;

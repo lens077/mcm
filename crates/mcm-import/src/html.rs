@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, HashSet};
 use dom_query::{Document, NodeRef};
 
 use crate::ImportError;
-use crate::diagram::{self, Diagram, Edge, Group, Node};
+use crate::diagram::{self, Diagram, Edge, End, Group, Node};
 use crate::raster::Rect;
 
 /// Separator archify uses in `data-node-context` for nested lanes/frames.
@@ -69,8 +69,8 @@ pub fn parse(html: &str) -> Result<(Diagram, String), ImportError> {
             continue;
         };
         edges.push(Edge {
-            from,
-            to,
+            from: End::Node(from),
+            to: End::Node(to),
             undirected: false,
             label: attr(e, "data-edge-label"),
         });

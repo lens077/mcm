@@ -1,5 +1,5 @@
-//! Format-neutral diagram model shared by every importer (image now, HTML
-//! next): nodes with text, nested groups, and directed edges.
+//! Format-neutral diagram model shared by every importer (image, archify
+//! HTML, Mermaid): nodes with text, nested groups, and directed edges.
 
 use serde::Serialize;
 
@@ -27,10 +27,21 @@ pub struct Group {
     pub parent: Option<usize>,
 }
 
+/// One end of an [`Edge`]. Images and archify HTML only connect nodes;
+/// Mermaid can also point an arrow at a whole subgraph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(tag = "kind", content = "index", rename_all = "snake_case")]
+pub enum End {
+    /// Index into [`Diagram::nodes`].
+    Node(usize),
+    /// Index into [`Diagram::groups`].
+    Group(usize),
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Edge {
-    pub from: usize,
-    pub to: usize,
+    pub from: End,
+    pub to: End,
     pub undirected: bool,
     /// Relationship text drawn on the connector, when the source has it.
     pub label: Option<String>,
@@ -50,6 +61,15 @@ impl Diagram {
     #[must_use]
     pub fn group_of_node(&self, node: usize) -> Option<usize> {
         self.groups.iter().position(|g| g.nodes.contains(&node))
+    }
+
+    /// Where an edge end sits, for ordering and debug overlays.
+    #[must_use]
+    pub fn rect_of(&self, end: End) -> Rect {
+        match end {
+            End::Node(n) => self.nodes[n].rect,
+            End::Group(g) => self.groups[g].rect,
+        }
     }
 }
 
@@ -155,8 +175,8 @@ pub fn assemble(leaves: &[Shape], frames: &[Shape], links: &[Link], text: &[Text
     let edges = links
         .iter()
         .map(|l| Edge {
-            from: l.from,
-            to: l.to,
+            from: End::Node(l.from),
+            to: End::Node(l.to),
             undirected: l.undirected,
             label: None,
         })

@@ -332,3 +332,34 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.mermaid-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.mermaid-picker select {
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 13px;
+}
+.mermaid-picker select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Mermaid sizes its SVG to the diagram; cap it so a large chart scrolls
+   inside the dialog instead of pushing the report away. */
+.mermaid-preview {
+  max-height: 320px;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  text-align: center;
+}
+.mermaid-preview svg { max-width: 100%; height: auto; }

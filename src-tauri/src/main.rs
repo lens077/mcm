@@ -37,6 +37,8 @@ fn main() {
             commands::export_precheck,
             commands::export_run,
             commands::diagram_import,
+            commands::diagram_source_read,
+            commands::graph_import,
             commands::ocr_model_status,
             commands::ocr_model_download,
             commands::ocr_model_remove,

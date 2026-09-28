@@ -8,7 +8,7 @@ use mcm_core::model::PositionedComment;
 use mcm_core::{Dependency, IdAllocator, Plan, Task, TaskId};
 use serde::Serialize;
 
-use crate::diagram::Diagram;
+use crate::diagram::{Diagram, End};
 use crate::raster::Rect;
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -24,6 +24,9 @@ pub struct ImportReport {
     pub loose_text: Vec<String>,
     /// Connector text the plan model cannot hold, as "A → B：label".
     pub edge_labels: Vec<String>,
+    /// Arrows between a group and something inside it, as "A → B". A plan
+    /// forbids dependencies between a task and its ancestor (V-PARENT).
+    pub hierarchy_links: Vec<String>,
     pub untitled_nodes: usize,
 }
 
@@ -36,6 +39,7 @@ pub fn to_plan(diagram: &Diagram, title: &str) -> (Plan, ImportReport) {
     }
     let mut ids = IdAllocator::new();
     let mut node_task: Vec<Option<TaskId>> = vec![None; diagram.nodes.len()];
+    let mut group_task: Vec<Option<TaskId>> = vec![None; diagram.groups.len()];
 
     // Items at one nesting level, in reading order.
     #[derive(Clone, Copy)]
@@ -78,6 +82,7 @@ pub fn to_plan(diagram: &Diagram, title: &str) -> (Plan, ImportReport) {
                         .chain(group.nodes.iter().map(|&n| Item::Node(n)))
                         .collect();
                     stack.push((Some(id), children));
+                    group_task[g] = Some(id);
                     Task::new(id, group.title.clone())
                 }
                 Item::Node(n) => {
@@ -110,13 +115,17 @@ pub fn to_plan(diagram: &Diagram, title: &str) -> (Plan, ImportReport) {
 
     // Dependencies, dropping the arrow that would close a cycle: a plan must
     // be acyclic (V-CYCLE) while an architecture diagram need not be.
+    let task_of = |end: End| match end {
+        End::Node(n) => node_task[n],
+        End::Group(g) => group_task[g],
+    };
     let mut edges: Vec<(TaskId, TaskId, bool, Option<&str>)> = diagram
         .edges
         .iter()
         .filter_map(|e| {
             Some((
-                node_task[e.from]?,
-                node_task[e.to]?,
+                task_of(e.from)?,
+                task_of(e.to)?,
                 e.undirected,
                 e.label.as_deref(),
             ))
@@ -136,6 +145,10 @@ pub fn to_plan(diagram: &Diagram, title: &str) -> (Plan, ImportReport) {
             .iter()
             .any(|d| d.predecessor == from && d.successor == to)
         {
+            continue;
+        }
+        if is_ancestor(&plan, from, to) || is_ancestor(&plan, to, from) {
+            report.hierarchy_links.push(arrow);
             continue;
         }
         if reaches(&kept, to, from) {
@@ -162,6 +175,12 @@ pub fn to_plan(diagram: &Diagram, title: &str) -> (Plan, ImportReport) {
             before: None,
         });
     }
+    for arrow in &report.hierarchy_links {
+        plan.comments.push(PositionedComment {
+            text: format!("连接分组与其内部元素、未导入的连线：{arrow}"),
+            before: None,
+        });
+    }
     for arrow in &report.cycle_breaks {
         plan.comments.push(PositionedComment {
             text: format!("为避免循环依赖未导入的连线：{arrow}"),
@@ -169,6 +188,18 @@ pub fn to_plan(diagram: &Diagram, title: &str) -> (Plan, ImportReport) {
         });
     }
     (plan, report)
+}
+
+/// Is `ancestor` a (transitive) parent of `task`?
+fn is_ancestor(plan: &Plan, ancestor: TaskId, task: TaskId) -> bool {
+    let mut at = plan.task(task).and_then(|t| t.parent);
+    while let Some(id) = at {
+        if id == ancestor {
+            return true;
+        }
+        at = plan.task(id).and_then(|t| t.parent);
+    }
+    false
 }
 
 /// Is `target` reachable from `start` along `deps`?
@@ -214,7 +245,7 @@ fn reading_order(rects: &[Rect]) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagram::{Edge, Group, Node};
+    use crate::diagram::{Edge, End, Group, Node};
 
     fn node(title: &str, x: i32, y: i32) -> Node {
         Node {
@@ -236,20 +267,20 @@ mod tests {
             }],
             edges: vec![
                 Edge {
-                    from: 1,
-                    to: 0,
+                    from: End::Node(1),
+                    to: End::Node(0),
                     undirected: false,
                     label: Some("调用".into()),
                 },
                 Edge {
-                    from: 0,
-                    to: 2,
+                    from: End::Node(0),
+                    to: End::Node(2),
                     undirected: false,
                     label: None,
                 },
                 Edge {
-                    from: 2,
-                    to: 1,
+                    from: End::Node(2),
+                    to: End::Node(1),
                     undirected: false,
                     label: None,
                 },
@@ -279,6 +310,42 @@ mod tests {
         assert!(text.contains("# 图中未归属的文字：Legend"), "{text}");
         assert!(text.contains("# 连线说明：A → B：调用"), "{text}");
         // The outline is valid input for the regular pipeline.
+        let parsed = mcm_core::outline::parse(&text);
+        assert!(
+            parsed.issues.iter().all(|i| !i.is_error()),
+            "{:?}",
+            parsed.issues
+        );
+    }
+
+    #[test]
+    fn arrows_can_target_a_group_but_not_its_own_members() {
+        let mut d = sample();
+        d.edges = vec![
+            // C → 边界: the group task depends on C.
+            Edge {
+                from: End::Node(2),
+                to: End::Group(0),
+                undirected: false,
+                label: None,
+            },
+            // 边界 → A: A lives inside the group, so this cannot be a dependency.
+            Edge {
+                from: End::Group(0),
+                to: End::Node(1),
+                undirected: false,
+                label: None,
+            },
+        ];
+        let (plan, report) = to_plan(&d, "测试");
+        let text = mcm_core::outline::serialize(&plan);
+        assert!(text.contains("- 边界 #t1 <-t2"), "{text}");
+        assert_eq!(report.dependencies, 1);
+        assert_eq!(report.hierarchy_links, vec!["边界 → A"]);
+        assert!(
+            text.contains("# 连接分组与其内部元素、未导入的连线：边界 → A"),
+            "{text}"
+        );
         let parsed = mcm_core::outline::parse(&text);
         assert!(
             parsed.issues.iter().all(|i| !i.is_error()),

@@ -10,6 +10,7 @@ const report = (over: Partial<ImportReport>): ImportReport => ({
   cycle_breaks: [],
   loose_text: [],
   edge_labels: [],
+  hierarchy_links: [],
   untitled_nodes: 0,
   ...over,
 });
@@ -38,5 +39,16 @@ describe("import summary", () => {
     expect(summary.notices).toHaveLength(5);
     expect(summary.notices.join("\n")).toContain("A → B");
     expect(summary.notices.join("\n")).toContain("注释");
+  });
+
+  it("speaks Mermaid's vocabulary for Mermaid sources", () => {
+    const summary = summariseImport(
+      report({ undirected: 1, hierarchy_links: ["核心域 → 订单"] }),
+      "mermaid",
+    );
+    expect(summary.mapped[0]).toBe("节点 × 12 → 任务（多行文字的其余行为备注）");
+    expect(summary.mapped[1]).toBe("子图 × 1 → 父任务");
+    expect(summary.notices[0]).toContain("书写顺序");
+    expect(summary.notices[1]).toContain("核心域 → 订单");
   });
 });

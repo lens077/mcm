@@ -14,7 +14,7 @@ use mcm_core::scene::SceneGraph;
 use mcm_core::session::SearchMatch;
 use mcm_core::{Session, SessionError, SessionState, ValidationIssue};
 use mcm_export::{ExportFormat, ExportReport};
-use mcm_import::{OcrEngine, OcrModel};
+use mcm_import::{GraphSpec, OcrEngine, OcrModel};
 use serde::{Deserialize, Serialize};
 
 /// Error envelope shared by every command (contracts/ipc-commands.md §通用约定).
@@ -411,6 +411,64 @@ fn import_file(
     })
 }
 
+/// Extensions whose text the Mermaid importer may read.
+const MERMAID_SOURCES: [&str; 4] = ["md", "markdown", "mmd", "mermaid"];
+/// Mermaid sources are hand-written text; anything larger is not one.
+const MERMAID_SOURCE_LIMIT: u64 = 4 * 1024 * 1024;
+
+/// Read a Markdown / Mermaid file picked in the import dialog, so the webview
+/// can parse and render it with the mermaid library. Only those extensions
+/// are served; this is not a general file reader.
+#[tauri::command(async)]
+pub fn diagram_source_read(path: String) -> CommandResult<DiagramSource> {
+    read_diagram_source(Path::new(&path))
+}
+
+fn read_diagram_source(path: &Path) -> CommandResult<DiagramSource> {
+    let allowed = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| MERMAID_SOURCES.iter().any(|e| ext.eq_ignore_ascii_case(e)));
+    if !allowed {
+        return Err(CommandError::new(
+            "E_IMPORT",
+            "只能读取 .md / .markdown / .mmd / .mermaid 文件",
+        ));
+    }
+    let io = |error: std::io::Error| {
+        CommandError::new("E_FILE_IO", format!("无法读取 {}：{error}", path.display()))
+    };
+    if std::fs::metadata(path).map_err(io)?.len() > MERMAID_SOURCE_LIMIT {
+        return Err(CommandError::new(
+            "E_IMPORT",
+            "文件超过 4 MB，不像是 Markdown 或 Mermaid 源文件",
+        ));
+    }
+    let bytes = std::fs::read(path).map_err(io)?;
+    let text = String::from_utf8(bytes)
+        .map_err(|_| CommandError::new("E_IMPORT", "文件不是 UTF-8 文本"))?;
+    Ok(DiagramSource {
+        text,
+        name: path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    })
+}
+
+/// Import a graph the webview already parsed (Mermaid) as outline text.
+/// Like `diagram_import`, it does not touch the session.
+#[tauri::command(async)]
+pub fn graph_import(spec: GraphSpec, fallback_title: String) -> CommandResult<DiagramImport> {
+    let imported = mcm_import::import_graph(&spec, &fallback_title)
+        .map_err(|error| CommandError::new("E_IMPORT", error.to_string()))?;
+    Ok(DiagramImport {
+        outline: imported.outline,
+        report: imported.report,
+        elapsed_ms: imported.elapsed_ms,
+    })
+}
+
 /// Whether the accurate OCR model is installed, and where.
 #[tauri::command]
 pub fn ocr_model_status(state: tauri::State<'_, AppState>) -> CommandResult<OcrModelStatus> {
@@ -478,6 +536,14 @@ pub struct OcrModelStatus {
     /// Where the model files live; users without network can copy them here.
     pub accurate_dir: String,
     pub downloading: bool,
+}
+
+/// Payload for `diagram_source_read`.
+#[derive(Debug, Clone, Serialize)]
+pub struct DiagramSource {
+    pub text: String,
+    /// File name without extension, the fallback plan title.
+    pub name: String,
 }
 
 /// Payload for `diagram_import`.
@@ -871,6 +937,44 @@ mod tests {
         let error = import_file(&file, OcrModel::Fast, no_accurate).unwrap_err();
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(error.code, "E_IMPORT");
+    }
+
+    #[test]
+    fn diagram_source_read_serves_only_markdown_and_mermaid() {
+        let dir = std::env::temp_dir().join(format!("mcm-source-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let md = dir.join("架构.md");
+        std::fs::write(&md, "# 标题\n\n```mermaid\nflowchart LR\n  a --> b\n```\n").unwrap();
+        let secret = dir.join("secret.txt");
+        std::fs::write(&secret, "token").unwrap();
+
+        let source = read_diagram_source(&md).expect("markdown is readable");
+        assert_eq!(source.name, "架构");
+        assert!(source.text.contains("flowchart LR"));
+        let refused = read_diagram_source(&secret).unwrap_err();
+        assert_eq!(refused.code, "E_IMPORT");
+        let missing = read_diagram_source(&dir.join("gone.mmd")).unwrap_err();
+        assert_eq!(missing.code, "E_FILE_IO");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn graph_import_turns_a_parsed_graph_into_outline_text() {
+        let spec: GraphSpec = serde_json::from_value(serde_json::json!({
+            "title": "",
+            "nodes": [{"id": "a", "label": "网关"}, {"id": "b", "label": "订单"}],
+            "groups": [{"id": "g", "label": "核心", "members": ["b"]}],
+            "edges": [{"from": "a", "to": "g"}]
+        }))
+        .unwrap();
+        let imported = graph_import(spec, "架构".into()).expect("import");
+        assert!(
+            imported.outline.starts_with("%mcm 1\n%title 架构\n"),
+            "{}",
+            imported.outline
+        );
+        assert_eq!(imported.report.dependencies, 1);
+        assert_eq!(imported.report.groups, 1);
     }
 
     #[test]

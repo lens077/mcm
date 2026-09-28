@@ -144,7 +144,24 @@ export interface ImportReport {
   cycle_breaks: string[];
   loose_text: string[];
   edge_labels: string[];
+  /** Arrows between a group and its own member, which a plan cannot hold. */
+  hierarchy_links: string[];
   untitled_nodes: number;
+}
+
+/** Mirrors `mcm_import::GraphSpec`: a graph parsed in the webview (Mermaid). */
+export interface GraphSpec {
+  title: string;
+  nodes: { id: string; label: string; detail: string[] }[];
+  groups: { id: string; label: string; members: string[] }[];
+  edges: { from: string; to: string; directed: boolean; label: string | null }[];
+}
+
+/** Payload of `diagram_source_read`. */
+export interface DiagramSource {
+  text: string;
+  /** File name without extension. */
+  name: string;
 }
 
 export interface DiagramImport {

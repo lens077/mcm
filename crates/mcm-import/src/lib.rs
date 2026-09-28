@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-//! Import diagrams drawn elsewhere (screenshots, exported HTML) into an MCM
-//! outline, so they can be edited here and exported to XMind / Visio.
+//! Import diagrams drawn elsewhere (screenshots, exported HTML, Mermaid) into
+//! an MCM outline, so they can be edited here and exported to XMind / Visio.
 //!
 //! Pipeline for images: local OCR → shape and connector analysis →
 //! [`Diagram`] → [`mcm_core::Plan`] → canonical outline text. The outline goes
@@ -10,6 +10,7 @@
 
 pub mod connectors;
 pub mod diagram;
+pub mod graph;
 pub mod html;
 pub mod models;
 pub mod ocr;
@@ -20,6 +21,7 @@ pub mod to_plan;
 use std::time::Instant;
 
 pub use diagram::Diagram;
+pub use graph::GraphSpec;
 pub use ocr::{OcrEngine, OcrModel};
 pub use to_plan::ImportReport;
 
@@ -171,6 +173,22 @@ pub fn import_html(bytes: &[u8], fallback_title: &str) -> Result<Imported, Impor
         fallback_title
     } else {
         &title
+    };
+    Ok(finish(diagram, title, started))
+}
+
+/// Import a graph whose structure is already known — Mermaid, parsed in the
+/// webview by the mermaid library. `spec.title` wins over `fallback_title`.
+///
+/// # Errors
+/// [`ImportError::Unsupported`] for an empty graph or dangling references.
+pub fn import_graph(spec: &GraphSpec, fallback_title: &str) -> Result<Imported, ImportError> {
+    let started = Instant::now();
+    let diagram = graph::parse(spec)?;
+    let title = if spec.title.trim().is_empty() {
+        fallback_title
+    } else {
+        &spec.title
     };
     Ok(finish(diagram, title, started))
 }

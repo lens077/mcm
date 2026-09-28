@@ -2,11 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   ApplyResult,
   DiagramImport,
+  DiagramSource,
   EditCommand,
   ExportFormat,
   ExportPrecheck,
   ExportReport,
   ExternalCheck,
+  GraphSpec,
   OcrModel,
   OcrModelStatus,
   Prefs,
@@ -55,6 +57,9 @@ export const ipc = {
     call<ExportReport>("export_run", { format, path }),
   diagramImport: (path: string, model: OcrModel) =>
     call<DiagramImport>("diagram_import", { path, model }),
+  diagramSourceRead: (path: string) => call<DiagramSource>("diagram_source_read", { path }),
+  graphImport: (spec: GraphSpec, fallbackTitle: string) =>
+    call<DiagramImport>("graph_import", { spec, fallbackTitle }),
   ocrModelStatus: () => call<OcrModelStatus>("ocr_model_status"),
   ocrModelDownload: () => call<OcrModelStatus>("ocr_model_download"),
   ocrModelRemove: () => call<OcrModelStatus>("ocr_model_remove"),

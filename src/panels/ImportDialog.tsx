@@ -5,6 +5,8 @@ import { ipc } from "../ipc/client";
 import type { DiagramImport, DownloadProgress, OcrModel, OcrModelStatus } from "../ipc/types";
 import { summariseImport } from "./import-summary";
 import { megabytes, modelOptions, modelReady, progressLabel } from "./ocr-model";
+import { MERMAID_EXTENSIONS, isMermaidPath } from "./mermaid-path";
+import type { MermaidFile } from "./mermaid-import";
 
 interface Props {
   open: boolean;
@@ -14,8 +16,20 @@ interface Props {
 }
 
 const FILTERS = [
-  { name: "图片或 archify HTML", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "html", "htm"] },
+  {
+    name: "图片、archify HTML 或 Mermaid",
+    extensions: ["png", "jpg", "jpeg", "webp", "bmp", "html", "htm", ...MERMAID_EXTENSIONS],
+  },
 ];
+
+/** mermaid and marked load only when a Mermaid file is picked. */
+const mermaidImport = () => import("./mermaid-import");
+
+/** The first diagram a plan can hold, else the first one. */
+function defaultBlock(file: MermaidFile): number {
+  const index = file.blocks.findIndex((b) => b.kind === "flowchart" || b.kind === "graph");
+  return Math.max(index, 0);
+}
 
 function messageOf(raw: unknown): string {
   return raw instanceof Object && "message" in raw ? String(raw.message) : String(raw);
@@ -29,6 +43,9 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
   const [model, setModel] = useState<OcrModel>("fast");
   const [status, setStatus] = useState<OcrModelStatus | null>(null);
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const [mermaidFile, setMermaidFile] = useState<MermaidFile | null>(null);
+  const [block, setBlock] = useState(0);
+  const [svg, setSvg] = useState<string | null>(null);
 
   // The chosen model is a preference; the install state comes from the core.
   useEffect(() => {
@@ -79,14 +96,43 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
     }
   };
 
+  const showBlock = async (file: MermaidFile, index: number) => {
+    setBlock(index);
+    setResult(null);
+    setSvg(null);
+    setError(null);
+    setBusy(true);
+    try {
+      const { importMermaidBlock } = await mermaidImport();
+      const outcome = await importMermaidBlock(file, index);
+      setSvg(outcome.svg);
+      setResult(outcome.result);
+      setError(outcome.error);
+    } catch (raw) {
+      setError(messageOf(raw));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const pick = async () => {
     setError(null);
     const selected = await openDialog({ multiple: false, filters: FILTERS });
     if (typeof selected !== "string") return;
     setSource(selected);
     setResult(null);
+    setSvg(null);
+    setMermaidFile(null);
     setBusy(true);
     try {
+      if (isMermaidPath(selected)) {
+        const { readMermaidFile } = await mermaidImport();
+        const file = await readMermaidFile(selected);
+        setMermaidFile(file);
+        setBusy(false);
+        await showBlock(file, defaultBlock(file));
+        return;
+      }
       setResult(await ipc.diagramImport(selected, model));
     } catch (raw) {
       setError(messageOf(raw));
@@ -100,11 +146,15 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
     if (await onLoad(result.outline)) {
       setResult(null);
       setSource(null);
+      setMermaidFile(null);
+      setSvg(null);
       onClose();
     }
   };
 
-  const summary = result ? summariseImport(result.report) : null;
+  const summary = result
+    ? summariseImport(result.report, mermaidFile ? "mermaid" : "drawing")
+    : null;
   const downloading = progress !== null || status?.downloading === true;
   const accurateMissing = !modelReady("accurate", status);
 
@@ -120,35 +170,38 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
 
         <div className="modal-body">
           <p className="import-intro">
-            选择架构图 / 流程图的截图，或 archify 生成的
-            HTML。截图在本地识别方框、分组、箭头与文字； HTML
-            直接读取其中的结构标注，结果精确。载入后可继续修改，或导出为 XMind /
-            Visio。文件不会离开本机。
+            选择架构图 / 流程图的截图、archify 生成的 HTML，或含 Mermaid 的 Markdown（.md）/
+            Mermaid（.mmd）文件。截图在本地识别方框、分组、箭头与文字；HTML 与 Mermaid
+            直接读取其中的结构，结果精确。载入后可继续修改，或导出为 XMind / Visio。
+            文件不会离开本机。
           </p>
 
-          <fieldset className="format-picker">
-            <legend>识别模型（仅用于截图）</legend>
-            {modelOptions(status).map((option) => (
-              <label key={option.id} className="format-option">
-                <input
-                  type="radio"
-                  name="ocr-model"
-                  value={option.id}
-                  checked={model === option.id}
-                  disabled={busy}
-                  onChange={() => {
-                    void choose(option.id);
-                  }}
-                />
-                <span>
-                  <strong>{option.label}</strong>
-                  <em>{option.blurb}</em>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          {/* Mermaid is read, not recognised: the OCR choice does not apply. */}
+          {!mermaidFile && (
+            <fieldset className="format-picker">
+              <legend>识别模型（仅用于截图）</legend>
+              {modelOptions(status).map((option) => (
+                <label key={option.id} className="format-option">
+                  <input
+                    type="radio"
+                    name="ocr-model"
+                    value={option.id}
+                    checked={model === option.id}
+                    disabled={busy}
+                    onChange={() => {
+                      void choose(option.id);
+                    }}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <em>{option.blurb}</em>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
 
-          {model === "accurate" && accurateMissing && (
+          {!mermaidFile && model === "accurate" && accurateMissing && (
             <div className="model-download">
               <p>
                 高精度模型不随安装包分发。点击下载后从 ModelScope 获取，失败时改用
@@ -180,7 +233,7 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
             </div>
           )}
 
-          {model === "accurate" && !accurateMissing && (
+          {!mermaidFile && model === "accurate" && !accurateMissing && (
             <p className="hint-block">
               高精度模型已就绪。
               <button
@@ -196,13 +249,41 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
           )}
 
           {source && <p className="export-path">{source}</p>}
-          {busy && <p className="empty-hint">识别中…</p>}
+
+          {mermaidFile && mermaidFile.blocks.length > 1 && (
+            <label className="mermaid-picker">
+              <span>文件中有 {mermaidFile.blocks.length} 张 Mermaid 图，选择要导入的一张：</span>
+              <select
+                value={block}
+                disabled={busy}
+                onChange={(event) => {
+                  void showBlock(mermaidFile, Number(event.target.value));
+                }}
+              >
+                {mermaidFile.labels.map((label, index) => (
+                  <option key={label} value={index}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {busy && <p className="empty-hint">{mermaidFile ? "解析中…" : "识别中…"}</p>}
           {error && <p className="export-error">{error}</p>}
+
+          {svg && (
+            <figure className="mermaid-preview" aria-label="Mermaid 图预览">
+              {/* mermaid renders with securityLevel "strict": labels sanitised, no scripts. */}
+              <div dangerouslySetInnerHTML={{ __html: svg }} />
+            </figure>
+          )}
 
           {summary && result && (
             <div className="export-report">
               <h3>
-                识别完成<span className="hint-inline">用时 {result.elapsed_ms} ms</span>
+                {mermaidFile ? "转换完成" : "识别完成"}
+                <span className="hint-inline">用时 {result.elapsed_ms} ms</span>
               </h3>
               <ul className="mapped-list">
                 {summary.mapped.map((line) => (
@@ -237,7 +318,7 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
             }}
             disabled={busy || downloading}
           >
-            {result ? "换一个文件" : "选择文件…"}
+            {source ? "换一个文件" : "选择文件…"}
           </button>
           <button
             type="button"
