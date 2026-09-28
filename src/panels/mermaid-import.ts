@@ -13,12 +13,14 @@ export interface MermaidFile {
   blocks: MermaidBlock[];
   /** Picker label per block. */
   labels: string[];
-  /** Markdown level-1 heading, if any. */
+  /** Front matter title or Markdown level-1 heading, if any. */
   title: string | null;
+  /** Diagrams found but not readable, to show next to the picker. */
+  skipped: string[];
 }
 
 /**
- * Read a .md / .mmd file and list its diagrams.
+ * Read a .md / .mdx / .mmd file and list its diagrams.
  *
  * @throws a user-facing message when the file holds no Mermaid diagram.
  */
@@ -26,13 +28,17 @@ export async function readMermaidFile(path: string): Promise<MermaidFile> {
   const source = await ipc.diagramSourceRead(path);
   const doc = extractMermaid(source.text, path);
   if (doc.blocks.length === 0) {
-    throw new Error("文件里没有 Mermaid 图。Markdown 中的图需写在 ```mermaid 代码块里。");
+    const why = doc.skipped.length > 0 ? `（${doc.skipped.join("；")}）` : "";
+    throw new Error(
+      `文件里没有可读取的 Mermaid 图${why}。图需写在 \`\`\`mermaid 代码块里，MDX 中也可以用 <Mermaid chart="…" />。`,
+    );
   }
   return {
     name: source.name,
     blocks: doc.blocks,
     labels: doc.blocks.map(blockLabel),
     title: doc.title,
+    skipped: doc.skipped,
   };
 }
 

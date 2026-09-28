@@ -7,7 +7,7 @@ XMind、Visio。入口是工具栏的「导入图表」，实现位于 `crates/m
 |------|------|------|
 | PNG / JPEG / WebP / BMP 截图 | 本地 OCR + 方框、分组框、箭头识别 | 依赖识别，需要人工核对 |
 | archify 生成的 `.html` | 读取 `data-node-*` / `data-edge-*` / 分组框标注 | 精确，不经过 OCR |
-| `.md` 中的 Mermaid 代码块、`.mmd` 文件 | mermaid 库解析并渲染预览 | 精确，见下方「Mermaid」 |
+| `.md` / `.mdx` 中的 Mermaid、`.mmd` 文件 | mermaid 库解析并渲染预览 | 精确，见下方「Mermaid」 |
 
 其他 HTML 会被明确拒绝，并提示改用截图导入，不会只导入一半。
 
@@ -148,12 +148,29 @@ cargo test -p mcm-app real_mirrors -- --ignored   # 真实访问两个下载源
 
 ## Mermaid
 
-`.md` / `.markdown` 里的 ` ```mermaid ` 代码块（也认 `~~~mermaid`，以及列表、引用里缩进的代码块），
+`.md` / `.markdown` / `.mdx` 里的 ` ```mermaid ` 代码块（也认 `~~~mermaid`，以及列表、引用里缩进的代码块），
 或者整个 `.mmd` / `.mermaid` 文件，都可以在「导入图表」里选择。
 
-- **不自己写解析器。** Markdown 用 marked 切分代码块，Mermaid 用 mermaid 库自带的解析器
-  读结构、用它的渲染器画预览，所以预览和转换对同一段源码的理解完全一致。
-  两个库都只在选中 Mermaid 文件时才加载，不进入启动包。
+- **不自己写解析器。** Markdown 与 MDX 用 micromark（MDX 自己用的解析器）解析成 mdast 语法树，
+  再从树上找图；Mermaid 用 mermaid 库自带的解析器读结构、用它的渲染器画预览，
+  所以预览和转换对同一段源码的理解完全一致。这些库都只在选中 Mermaid 文件时才加载，
+  不进入启动包。
+- YAML front matter 按 front matter 解析，不会被误当成 `---` 分隔线下的标题。
+
+### MDX
+
+`.mdx` 按 MDX 语法解析（ESM `import` / `export`、JSX、`{表达式}`），和站点编译它时一样：
+
+- JSX 组件里的 Markdown 照常识别，例如 `<Tabs><TabItem>` 里的 ` ```mermaid ` 代码块。
+- 除代码块外，也识别以组件形式嵌入的图：`<Mermaid>` / `<MermaidDiagram>` 的
+  `chart`、`value`、`code`、`definition` 属性。只读取字面量：`chart="…"`、`chart={"…"}`，
+  以及不含 `${}` 的模板字符串。MDX 编译时会去掉表达式内每行开头的空白，组件在站点上
+  拿到的就是去掉后的字符串，导入读到的也一样。
+- 属性是变量或拼接出来的（`chart={source}`），源码要到运行时才有，导入时跳过，
+  并在对话框里注明第几行。
+- 标题里的 `{表达式}`（如 `{/* 注释 */}`）不算标题文字。
+- 文件不是合法的 MDX（例如正文里有未转义的 `{`）时，报告第几行第几列出错，
+  不会退回按 Markdown 猜测。
 - **映射仍在 Rust 里做。** webview 把解析出的节点、子图、连线交给 `graph_import` 命令
   （`mcm_import::GraphSpec`），之后与截图、archify 走同一套 `to_plan` 规则。
 - 一个文件里有多张图时，对话框里可以切换；默认选中第一张 flowchart。
@@ -175,13 +192,13 @@ cargo test -p mcm-app real_mirrors -- --ignored   # 真实访问两个下载源
 | 会形成环的箭头 | 不导入，写成注释，与截图相同 |
 
 规划标题依次取：图的 front matter `title`、代码块上方最近的 Markdown 标题、
-文档的一级标题、文件名。没有坐标，所以同一层级内按节点在源码中首次出现的顺序排列，
+文档 front matter 的 `title`（没有时取一级标题）、文件名。没有坐标，所以同一层级内按节点在源码中首次出现的顺序排列，
 子图排在它第一个成员出现的位置。
 
 标签里的 Markdown 字符串（`` "`**粗体**`" ``）会去掉强调记号，HTML 标签和实体会还原成
 纯文本，`fa:fa-xxx` 图标记号会去掉。
 
-读取文件的 `diagram_source_read` 命令只接受上述四种扩展名、不超过 4 MB 的 UTF-8 文本，
+读取文件的 `diagram_source_read` 命令只接受上述五种扩展名、不超过 4 MB 的 UTF-8 文本，
 不是通用的文件读取接口。
 
 mermaid 让前端产物增加约 5 MB（未压缩，大部分是按图类型拆分的懒加载分块），

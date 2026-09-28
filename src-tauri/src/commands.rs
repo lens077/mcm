@@ -412,11 +412,11 @@ fn import_file(
 }
 
 /// Extensions whose text the Mermaid importer may read.
-const MERMAID_SOURCES: [&str; 4] = ["md", "markdown", "mmd", "mermaid"];
+const MERMAID_SOURCES: [&str; 5] = ["md", "markdown", "mdx", "mmd", "mermaid"];
 /// Mermaid sources are hand-written text; anything larger is not one.
 const MERMAID_SOURCE_LIMIT: u64 = 4 * 1024 * 1024;
 
-/// Read a Markdown / Mermaid file picked in the import dialog, so the webview
+/// Read a Markdown / MDX / Mermaid file picked in the import dialog, so the webview
 /// can parse and render it with the mermaid library. Only those extensions
 /// are served; this is not a general file reader.
 #[tauri::command(async)]
@@ -432,7 +432,7 @@ fn read_diagram_source(path: &Path) -> CommandResult<DiagramSource> {
     if !allowed {
         return Err(CommandError::new(
             "E_IMPORT",
-            "只能读取 .md / .markdown / .mmd / .mermaid 文件",
+            "只能读取 .md / .markdown / .mdx / .mmd / .mermaid 文件",
         ));
     }
     let io = |error: std::io::Error| {
@@ -441,7 +441,7 @@ fn read_diagram_source(path: &Path) -> CommandResult<DiagramSource> {
     if std::fs::metadata(path).map_err(io)?.len() > MERMAID_SOURCE_LIMIT {
         return Err(CommandError::new(
             "E_IMPORT",
-            "文件超过 4 MB，不像是 Markdown 或 Mermaid 源文件",
+            "文件超过 4 MB，不像是 Markdown、MDX 或 Mermaid 源文件",
         ));
     }
     let bytes = std::fs::read(path).map_err(io)?;
@@ -949,6 +949,12 @@ mod tests {
         std::fs::write(&secret, "token").unwrap();
 
         let source = read_diagram_source(&md).expect("markdown is readable");
+        let mdx = dir.join("guide.MDX");
+        std::fs::write(&mdx, "import X from './x'\n\n<X />\n").unwrap();
+        assert_eq!(
+            read_diagram_source(&mdx).expect("mdx is readable").name,
+            "guide"
+        );
         assert_eq!(source.name, "架构");
         assert!(source.text.contains("flowchart LR"));
         let refused = read_diagram_source(&secret).unwrap_err();

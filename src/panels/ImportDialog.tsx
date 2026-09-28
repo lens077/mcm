@@ -170,7 +170,8 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
 
         <div className="modal-body">
           <p className="import-intro">
-            选择架构图 / 流程图的截图、archify 生成的 HTML，或含 Mermaid 的 Markdown（.md）/
+            选择架构图 / 流程图的截图、archify 生成的 HTML，或含 Mermaid 的
+            Markdown（.md）、MDX（.mdx）/
             Mermaid（.mmd）文件。截图在本地识别方框、分组、箭头与文字；HTML 与 Mermaid
             直接读取其中的结构，结果精确。载入后可继续修改，或导出为 XMind / Visio。
             文件不会离开本机。
@@ -268,6 +269,12 @@ export function ImportDialog({ open, onClose, onLoad }: Props) {
               </select>
             </label>
           )}
+
+          {mermaidFile?.skipped.map((note) => (
+            <p key={note} className="hint-block">
+              {note}
+            </p>
+          ))}
 
           {busy && <p className="empty-hint">{mermaidFile ? "解析中…" : "识别中…"}</p>}
           {error && <p className="export-error">{error}</p>}

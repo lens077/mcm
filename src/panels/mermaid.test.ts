@@ -53,6 +53,67 @@ describe("finding Mermaid in files", () => {
     expect(extractMermaid("  \n", "empty.mmd").blocks).toEqual([]);
   });
 
+  it("reads document front matter instead of mistaking it for a heading", () => {
+    const doc = extractMermaid(
+      "---\ntitle: 设计文档\n---\n\n```mermaid\ngraph TD\n  a\n```\n",
+      "x.md",
+    );
+    expect(doc.title).toBe("设计文档");
+    expect(doc.blocks[0]?.heading).toBeNull();
+  });
+
+  it("reads MDX: fences inside JSX, and Mermaid components with literal source", () => {
+    const mdx = `---
+title: 架构说明
+---
+import Tabs from "@theme/Tabs";
+import Mermaid from "@theme/Mermaid";
+export const meta = { draft: false };
+
+# 总览 {/* 注释 */}
+
+<Tabs>
+  <TabItem value="flow">
+\`\`\`mermaid
+flowchart LR
+  a --> b
+\`\`\`
+  </TabItem>
+</Tabs>
+
+## 部署
+
+<Mermaid chart={\`graph TD
+  x --> y\`} />
+
+<Mermaid value="sequenceDiagram
+  A->>B: hi" />
+
+<Mermaid chart={source} />
+`;
+    const doc = extractMermaid(mdx, "/docs/guide.mdx");
+    expect(doc.title).toBe("架构说明");
+    expect(doc.blocks.map((b) => [b.kind, b.heading])).toEqual([
+      ["flowchart", "总览"],
+      ["graph", "部署"],
+      ["sequenceDiagram", "部署"],
+    ]);
+    // MDX drops line-leading whitespace inside expressions when it compiles,
+    // so this is exactly the string the component receives on the site.
+    expect(doc.blocks[1]?.code).toBe("graph TD\nx --> y");
+    expect(doc.skipped).toEqual([
+      "第 27 行 <Mermaid> 的图源码是运行时表达式，无法静态读取，已跳过",
+    ]);
+  });
+
+  it("reports invalid MDX with its position", () => {
+    expect(() => extractMermaid("# 标题\n\n价格 {a +} 元\n", "x.mdx")).toThrow(
+      /MDX 解析失败，第 3 行/,
+    );
+    // The same text is fine as plain Markdown.
+    expect(extractMermaid("# 标题\n\n价格 {a +} 元\n", "x.md").title).toBe("标题");
+  });
+
   it("reads only the top-level front matter title", () => {
     expect(frontMatterTitle("---\nconfig:\n  title: no\n---\nflowchart")).toBeNull();
     expect(frontMatterTitle("flowchart LR\n title: no")).toBeNull();

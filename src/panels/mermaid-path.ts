@@ -2,7 +2,7 @@
 // modules so the dialog can decide without loading marked or mermaid.
 
 /** Extensions routed to the Mermaid importer instead of image / HTML import. */
-export const MERMAID_EXTENSIONS = ["md", "markdown", "mmd", "mermaid"] as const;
+export const MERMAID_EXTENSIONS = ["md", "markdown", "mdx", "mmd", "mermaid"] as const;
 
 export function extensionOf(path: string): string {
   const name = path.split(/[\\/]/).pop() ?? "";

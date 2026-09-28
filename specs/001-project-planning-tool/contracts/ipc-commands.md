@@ -46,7 +46,7 @@
 | `prefs_get` / `prefs_set` | `{...}` | `{...}` | 主题、最近文件、按文件视图状态（不入 `.mcm`） |
 | `app_close_check` | — | `{dirty}` | 关闭前脏检查（FR-016 提示由前端呈现） |
 | `diagram_import` | `{path, model?: "fast"\|"accurate"}` | `{outline, report: ImportReport, elapsed_ms}` | 把架构图图片（PNG/JPEG/WebP/BMP，本地 OCR）或 archify HTML（`.html`/`.htm`，读取语义标注）转为大纲文本；**不改动会话**，由前端决定是否载入为新规划。读不到文件 → `E_FILE_IO`；解码/识别失败、HTML 无 archify 标注 → `E_IMPORT`。`model` 只对图片生效，缺省为 `fast`；选 `accurate` 但模型未下载 → `E_MODEL_MISSING`。见 [docs/image-import.md](../../../docs/image-import.md) |
-| `diagram_source_read` | `{path}` | `{text, name}` | 读取导入对话框选中的 Mermaid 源文件，供 webview 用 mermaid 库解析与渲染。**只接受** `.md`/`.markdown`/`.mmd`/`.mermaid`、≤ 4 MB 的 UTF-8 文本，不是通用读文件接口；`name` 为去扩展名的文件名。其他扩展名、超限、非 UTF-8 → `E_IMPORT`；读不到 → `E_FILE_IO` |
+| `diagram_source_read` | `{path}` | `{text, name}` | 读取导入对话框选中的 Mermaid 源文件，供 webview 用 mermaid 库解析与渲染。**只接受** `.md`/`.markdown`/`.mdx`/`.mmd`/`.mermaid`、≤ 4 MB 的 UTF-8 文本，不是通用读文件接口；`name` 为去扩展名的文件名。其他扩展名、超限、非 UTF-8 → `E_IMPORT`；读不到 → `E_FILE_IO` |
 | `graph_import` | `{spec: GraphSpec, fallbackTitle}` | `{outline, report: ImportReport, elapsed_ms}` | 把 webview 已解析的图（Mermaid flowchart）转为大纲文本，映射规则与 `diagram_import` 相同；**不改动会话**。`GraphSpec = {title, nodes: [{id, label, detail[]}], groups: [{id, label, members[]}], edges: [{from, to, directed, label?}]}`，`spec.title` 为空时用 `fallbackTitle`。空图、连线引用不存在的 id、子图互相包含 → `E_IMPORT` |
 | `ocr_model_status` | — | `OcrModelStatus` | `{accurate_installed, accurate_download_bytes, accurate_dir, downloading}` |
 | `ocr_model_download` | — | `OcrModelStatus` | **唯一的联网命令**，仅由用户点击触发；逐文件校验 SHA-256，按镜像顺序回退。进度经事件 `ocr-model-download` `{done, total}` 推送。失败 → `E_DOWNLOAD`；重复触发 → `E_BUSY` |
