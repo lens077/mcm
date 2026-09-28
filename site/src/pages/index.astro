@@ -11,10 +11,32 @@ const releases = `${repo}/releases/latest`;
 
 // 全部取自仓库内已验证的实测结果，不写没有依据的数字。
 const facts = [
-  { value: "25 ms", label: "冷启动 P95", note: "预算 2 s" },
-  { value: "11.3 MB", label: "安装包体积", note: "预算 25 MB" },
+  { value: "35 ms", label: "冷启动 P95", note: "预算 2 s" },
+  { value: "10.6 MB", label: "安装包体积（.dmg）", note: "预算 25 MB" },
   { value: "22 ms", label: "5000 任务解析 + 校验", note: "预算 200 ms" },
-  { value: "491", label: "自动化测试", note: "Rust 415 · 前端 76" },
+  { value: "534", label: "自动化测试", note: "Rust 449 · 前端 85" },
+];
+
+// 下面这段是快速模型对 import-source.png 的原样输出（节选），没有手工修饰。
+const importOutline = `- Consul #t1 <-t8
+  > 服务注册 + 健康检查
+- PostgresQL #t3 <-t11
+  > queries + schema
+- backend/services/{service}/internal/-靠目录与 internal/ 强制边界 #t5
+  - internal/server #t8 <-t4 <-t12
+    > Connect handler· health ·拦截器
+  - internal/service #t9 <-t2 <-t8
+  - internal/data #t11 <-t10
+    > 仓储实现
+  - internal/data/models #t13 <-t11
+    > sqLc 生成的 Querier
+- Dragonfly #t6 <-t11
+# 图中未归属的文字：Legend`;
+
+// 同一张 2522×878 截图、26 段文字上的实测。
+const ocrModels = [
+  { name: "快速（默认）", model: "PP-OCRv6 tiny", get: "内置", speed: "约 0.3 秒", accuracy: "23/26 完全正确" },
+  { name: "高精度", model: "PP-OCRv6 small", get: "按需下载 21.2 MB", speed: "约 0.7 秒", accuracy: "26/26 完全正确" },
 ];
 
 // 截图由 scripts/capture-screens.mjs 生成：场景数据出自 mcm-core，
@@ -47,7 +69,7 @@ const outline = `%mcm 1
     <title>MCM — 写下大纲，得到可继续编辑的规划</title>
     <meta
       name="description"
-      content="面向开发者与产品经理的桌面端项目规划工具。结构化大纲输入，四种联动视图，导出为 XMind 与 Visio 中可继续编辑的文件。macOS 与 Windows，完全离线。"
+      content="面向开发者与产品经理的桌面端项目规划工具。结构化大纲输入，四种联动视图，可从架构图截图或 archify HTML 导入，导出为 XMind 与 Visio 中可继续编辑的文件。macOS 与 Windows，完全离线。"
     />
     <meta property="og:title" content="MCM — 写下大纲，得到可继续编辑的规划" />
     <meta
@@ -67,6 +89,7 @@ const outline = `%mcm 1
         <nav aria-label="主导航">
           <a href="#why">为什么</a>
           <a href="#how">怎么用</a>
+          <a href="#import">导入</a>
           <a href="#export">导出</a>
           <a href={repo}>源码</a>
         </nav>
@@ -165,6 +188,84 @@ const outline = `%mcm 1
         </div>
       </section>
 
+      <!-- 导入：不必从零写大纲 -->
+      <section id="import" class="wrap band">
+        <h2>已经画好的图，直接导进来</h2>
+        <p class="section-lede">
+          架构图截图，或 archify 生成的 HTML，都能转成上面那种大纲：方框成为任务，
+          分组框成为父任务，箭头成为依赖。之后照常编辑，也能直接导出成 XMind、Visio。
+          识别在本机完成，图片不会上传。
+        </p>
+        <p class="notice">
+          导入功能已合入主分支，会随下一个版本的安装包发布；现在想试可以从源码构建。
+        </p>
+
+        <div class="import-demo">
+          <figure>
+            <img
+              src={asset("shots/import-source.png")}
+              alt="一张 Go 服务分层架构图的截图：12 个方框、一个虚线分组框、11 条箭头"
+              width="2522"
+              height="878"
+              loading="lazy"
+            />
+            <figcaption>输入：一张架构图截图</figcaption>
+          </figure>
+          <figure>
+            <pre class="code"><code>{importOutline}</code></pre>
+            <figcaption>
+              输出（节选）：12 个方框、1 个分组、11 条箭头全部还原。
+              <code>PostgresQL</code>、<code>sqLc</code> 是快速模型的大小写误差，
+              原样保留在这里；换高精度模型后消失。
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="two-col import-cols">
+          <div>
+            <h3>截图：本地 OCR</h3>
+            <p>
+              PaddleOCR 模型跑在纯 Rust 推理引擎上，不依赖系统 OCR，
+              macOS 与 Windows 结果一致。方框、虚线分组、箭头方向用确定性的像素分析识别，
+              连线从标题下穿过、跨过分组边框也不会断。
+            </p>
+            <table class="models">
+              <thead>
+                <tr><th>模型</th><th>获取</th><th>速度</th><th>准确度</th></tr>
+              </thead>
+              <tbody>
+                {
+                  ocrModels.map((m) => (
+                    <tr>
+                      <td><strong>{m.name}</strong><br /><span class="muted">{m.model}</span></td>
+                      <td>{m.get}</td>
+                      <td>{m.speed}</td>
+                      <td>{m.accuracy}</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+            <p class="degrade">
+              高精度模型不打进安装包，只在你点「下载」时联网：先 ModelScope、再 GitHub，
+              下载后校验 SHA-256，不符就拒绝使用。切换模型只影响文字，结构识别不变。
+            </p>
+          </div>
+          <div>
+            <h3>archify HTML：精确读取</h3>
+            <p>
+              archify 把节点、连线、分组都写成了 HTML 里的结构标注，
+              所以直接读标注，不经过 OCR，文字一个不差。
+              同一张图的截图和 HTML 分别导入，11 条箭头完全一致——这条由测试守着。
+            </p>
+            <p class="degrade">
+              规划模型放不下的东西——连线上的文字、会成环的箭头、图例——
+              写成大纲注释并在导入对话框里逐条列出，不做静默丢弃。
+            </p>
+          </div>
+        </div>
+      </section>
+
       <!-- 四视图 -->
       <section class="wrap band">
         <h2>同一份模型，四种投影</h2>
@@ -252,6 +353,7 @@ const outline = `%mcm 1
         <h2>拿来试试</h2>
         <p>
           安装包约 11 MB，装完即用，不需要账号，不联网也能跑完整流程。
+          只有高精度 OCR 模型需要你主动点一次下载。
         </p>
         <div class="cta">
           <a class="button primary" href={releases}>下载安装包</a>
@@ -515,6 +617,74 @@ const outline = `%mcm 1
         margin: 0;
         color: var(--ink-muted);
         font-size: 14px;
+      }
+
+      .notice {
+        margin: 0 0 var(--space-8);
+        padding: var(--space-3) var(--space-4);
+        border-left: 3px solid var(--signal);
+        background: var(--surface-raised);
+        font-size: 14px;
+        color: var(--ink-muted);
+      }
+      .import-demo {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+        gap: var(--space-6);
+        align-items: start;
+        margin-bottom: var(--space-12);
+      }
+      @media (max-width: 900px) {
+        .import-demo {
+          grid-template-columns: 1fr;
+        }
+      }
+      .import-demo figure {
+        margin: 0;
+        min-width: 0;
+      }
+      .import-demo img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+      }
+      .import-demo .code {
+        font-size: 12px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .import-demo figcaption {
+        margin-top: var(--space-3);
+        font-size: 13px;
+        color: var(--ink-muted);
+      }
+      .import-cols > div {
+        min-width: 0;
+      }
+      .models {
+        width: 100%;
+        margin: var(--space-4) 0;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+      .models th,
+      .models td {
+        padding: var(--space-2) var(--space-3) var(--space-2) 0;
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+        text-align: left;
+        vertical-align: top;
+      }
+      .models th {
+        font-weight: 600;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+      .muted {
+        color: var(--ink-muted);
+        font-size: 12px;
       }
 
       .card {
