@@ -17,6 +17,11 @@ thiserror = "2.0.16"
 uuid = { version = "1.18.1", features = ["v4", "v5", "serde"] }
 zip = { version = "4.5.0", default-features = false, features = ["deflate"] }
 
+# 发布包去掉符号表：导入图表引入 OCR 引擎与模型后 .app 逼近 25 MB 预算，
+# strip 省下约 5 MB 余量。panic 信息仍保留，只是回溯里没有函数名。
+[profile.release]
+strip = true
+
 # OCR 推理在 debug 构建下慢两个数量级，`cargo test` 会被拖到分钟级。
 # 只对推理与图像解码相关的依赖开优化，其余保持 debug 以免拖慢增量编译。
 [profile.dev.package.rten]
