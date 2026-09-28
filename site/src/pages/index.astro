@@ -11,10 +11,10 @@ const releases = `${repo}/releases/latest`;
 
 // 全部取自仓库内已验证的实测结果，不写没有依据的数字。
 const facts = [
-  { value: "35 ms", label: "冷启动 P95", note: "预算 2 s" },
-  { value: "10.6 MB", label: "安装包体积（.dmg）", note: "预算 25 MB" },
+  { value: "23 ms", label: "冷启动 P95", note: "预算 2 s" },
+  { value: "12.0 MB", label: "安装包体积（.dmg）", note: "预算 25 MB" },
   { value: "22 ms", label: "5000 任务解析 + 校验", note: "预算 200 ms" },
-  { value: "534", label: "自动化测试", note: "Rust 449 · 前端 85" },
+  { value: "554", label: "自动化测试", note: "Rust 457 · 前端 97" },
 ];
 
 // 下面这段是快速模型对 import-source.png 的原样输出（节选），没有手工修饰。
@@ -111,7 +111,7 @@ const outline = `%mcm 1
           <a class="button primary" href={releases}>下载安装包</a>
           <a class="button" href={repo}>查看源码</a>
         </div>
-        <p class="cta-note">提供 macOS <code>.dmg</code> 与 Windows <code>.msi</code>／<code>.exe</code>，附 SHA256 校验和。</p>
+        <p class="cta-note">当前版本 v0.2.0：提供 macOS <code>.dmg</code> 与 Windows <code>.exe</code> 安装包，附 SHA256 校验和。</p>
       </section>
 
       <!-- 产品实拍：真实渲染，非示意图 -->
@@ -192,14 +192,11 @@ const outline = `%mcm 1
       <section id="import" class="wrap band">
         <h2>已经画好的图，直接导进来</h2>
         <p class="section-lede">
-          架构图截图，或 archify 生成的 HTML，都能转成上面那种大纲：方框成为任务，
+          架构图截图、archify 生成的 HTML，或 Markdown / MDX 里的 Mermaid 流程图，
+          都能转成上面那种大纲：方框成为任务，
           分组框成为父任务，箭头成为依赖。之后照常编辑，也能直接导出成 XMind、Visio。
           识别在本机完成，图片不会上传。
         </p>
-        <p class="notice">
-          导入功能已合入主分支，会随下一个版本的安装包发布；现在想试可以从源码构建。
-        </p>
-
         <div class="import-demo">
           <figure>
             <img
@@ -352,7 +349,7 @@ const outline = `%mcm 1
       <section class="wrap closing">
         <h2>拿来试试</h2>
         <p>
-          安装包约 11 MB，装完即用，不需要账号，不联网也能跑完整流程。
+          安装包约 12 MB，装完即用，不需要账号，不联网也能跑完整流程。
           只有高精度 OCR 模型需要你主动点一次下载。
         </p>
         <div class="cta">
@@ -619,14 +616,6 @@ const outline = `%mcm 1
         font-size: 14px;
       }
 
-      .notice {
-        margin: 0 0 var(--space-8);
-        padding: var(--space-3) var(--space-4);
-        border-left: 3px solid var(--signal);
-        background: var(--surface-raised);
-        font-size: 14px;
-        color: var(--ink-muted);
-      }
       .import-demo {
         display: grid;
         grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
