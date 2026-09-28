@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ApplyResult,
+  DiagramImport,
   EditCommand,
   ExportFormat,
   ExportPrecheck,
@@ -50,4 +51,5 @@ export const ipc = {
   exportPrecheck: () => call<ExportPrecheck>("export_precheck"),
   exportRun: (format: ExportFormat, path: string) =>
     call<ExportReport>("export_run", { format, path }),
+  diagramImport: (path: string) => call<DiagramImport>("diagram_import", { path }),
 };

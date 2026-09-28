@@ -5,6 +5,7 @@ interface Props {
   redoDepth: number;
   dirty: boolean;
   onOpen: () => void;
+  onImport: () => void;
   onSave: () => void;
   onExport: () => void;
   onUndo: () => void;
@@ -23,6 +24,7 @@ export function Toolbar({
   redoDepth,
   dirty,
   onOpen,
+  onImport,
   onSave,
   onExport,
   onUndo,
@@ -34,6 +36,15 @@ export function Toolbar({
     <div className="toolbar" role="toolbar" aria-label="编辑操作">
       <button type="button" className="toolbar-button" onClick={onOpen} aria-label="打开规划">
         打开
+      </button>
+      <button
+        type="button"
+        className="toolbar-button"
+        onClick={onImport}
+        aria-label="导入图表"
+        title="把架构图截图或 archify HTML 转换为可编辑的大纲"
+      >
+        导入图表
       </button>
       <button
         type="button"

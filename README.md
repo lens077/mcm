@@ -13,6 +13,8 @@
 
 - **输入即文件**：`.mcm` 的正文就是你写的大纲语法，可手工编辑、可进 Git、行级 diff 稳定
 - **四种联动视图**：任务分解、依赖网络、时间线、里程碑 —— 同一模型的四种投影
+- **导入现成的图**：架构图截图（本地 OCR）或 archify HTML 一键转成大纲，
+  之后照常编辑、导出
 - **导出可再编辑**：XMind 的依赖是真实连线，Visio 的连接线拖动形状时保持粘连；
   不是位图，不是不可编辑的替身
 
@@ -84,6 +86,7 @@ Windows（`.msi` / `.exe`）安装包，附 `SHA256SUMS` 可校验。
 ## 文档
 
 - **[HANDOVER.md](./HANDOVER.md)** — 交接文档：架构决策、测试策略、未验证部分、后续方向
+- [导入图表](./docs/image-import.md) — 截图 / archify HTML 导入的映射规则、OCR 选型与基准
 - [项目宪法](./.specify/memory/constitution.md) — 七条不可协商的原则
 - [规格与契约](./specs/001-project-planning-tool/) — 需求、技术方案、5 份接口契约、格式调研
 

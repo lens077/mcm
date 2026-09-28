@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/mcm-core", "crates/mcm-export", "src-tauri"]
+members = ["crates/mcm-core", "crates/mcm-export", "crates/mcm-import", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -16,3 +16,26 @@ serde_json = "1.0.143"
 thiserror = "2.0.16"
 uuid = { version = "1.18.1", features = ["v4", "v5", "serde"] }
 zip = { version = "4.5.0", default-features = false, features = ["deflate"] }
+
+# OCR 推理在 debug 构建下慢两个数量级，`cargo test` 会被拖到分钟级。
+# 只对推理与图像解码相关的依赖开优化，其余保持 debug 以免拖慢增量编译。
+[profile.dev.package.rten]
+opt-level = 3
+[profile.dev.package.rten-gemm]
+opt-level = 3
+[profile.dev.package.rten-simd]
+opt-level = 3
+[profile.dev.package.rten-vecmath]
+opt-level = 3
+[profile.dev.package.rten-tensor]
+opt-level = 3
+[profile.dev.package.rten-base]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.mcm-import]
+opt-level = 2

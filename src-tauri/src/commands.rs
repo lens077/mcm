@@ -326,6 +326,49 @@ pub fn export_run(
     })
 }
 
+/// Import a diagram — an image (PNG/JPEG/WebP/BMP) or archify HTML — as
+/// outline text.
+///
+/// Runs off the UI thread (OCR takes a few hundred ms) and does not touch the
+/// session: the caller decides whether to load the outline into a new plan.
+#[tauri::command(async)]
+pub fn diagram_import(path: String) -> CommandResult<DiagramImport> {
+    import_file(Path::new(&path))
+}
+
+fn import_file(path: &Path) -> CommandResult<DiagramImport> {
+    let bytes = std::fs::read(path).map_err(|error| {
+        CommandError::new("E_FILE_IO", format!("无法读取 {}：{error}", path.display()))
+    })?;
+    let title = path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let is_html = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm"));
+    let imported = if is_html {
+        mcm_import::import_html(&bytes, &title)
+    } else {
+        mcm_import::import_image(&bytes, &title)
+    }
+    .map_err(|error| CommandError::new("E_IMPORT", error.to_string()))?;
+    Ok(DiagramImport {
+        outline: imported.outline,
+        report: imported.report,
+        elapsed_ms: imported.elapsed_ms,
+    })
+}
+
+/// Payload for `diagram_import`.
+#[derive(Debug, Clone, Serialize)]
+pub struct DiagramImport {
+    pub outline: String,
+    pub report: mcm_import::ImportReport,
+    pub elapsed_ms: u64,
+}
+
 /// Payload for `export_precheck`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportPrecheck {
@@ -649,6 +692,46 @@ mod tests {
             .unwrap();
         assert!(text.starts_with("%mcm 1\n"), "{text}");
         assert!(text.contains(" #t1"), "{text}");
+    }
+
+    #[test]
+    fn diagram_import_reads_an_image_into_outline_text() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../crates/mcm-import/fixtures/archify-go-service.png");
+        let imported = import_file(&fixture).expect("import");
+        assert!(
+            imported
+                .outline
+                .starts_with("%mcm 1\n%title archify-go-service\n")
+        );
+        assert_eq!(imported.report.nodes, 12);
+        assert!(imported.outline.contains("internal/server"));
+    }
+
+    #[test]
+    fn diagram_import_reads_archify_html_by_extension() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../crates/mcm-import/fixtures/archify-go-service.html");
+        let imported = import_file(&fixture).expect("import");
+        assert!(imported.outline.starts_with("%mcm 1\n%title Go 服务分层\n"));
+        assert_eq!(imported.report.dependencies, 11);
+    }
+
+    #[test]
+    fn diagram_import_rejects_html_without_archify_markup() {
+        let dir = std::env::temp_dir().join(format!("mcm-import-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("plain.html");
+        std::fs::write(&file, "<html><body><p>hi</p></body></html>").unwrap();
+        let error = import_file(&file).unwrap_err();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(error.code, "E_IMPORT");
+    }
+
+    #[test]
+    fn diagram_import_surfaces_unreadable_files() {
+        let missing = import_file(Path::new("/definitely/not/here.png")).unwrap_err();
+        assert_eq!(missing.code, "E_FILE_IO");
     }
 
     #[test]

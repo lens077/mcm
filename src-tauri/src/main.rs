@@ -35,6 +35,7 @@ fn main() {
             commands::prefs_set,
             commands::export_precheck,
             commands::export_run,
+            commands::diagram_import,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run MCM desktop app");

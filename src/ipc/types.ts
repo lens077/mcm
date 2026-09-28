@@ -117,6 +117,24 @@ export interface SearchMatch {
   snippet: string;
 }
 
+/** Mirrors `mcm_import::ImportReport`. */
+export interface ImportReport {
+  nodes: number;
+  groups: number;
+  dependencies: number;
+  undirected: number;
+  cycle_breaks: string[];
+  loose_text: string[];
+  edge_labels: string[];
+  untitled_nodes: number;
+}
+
+export interface DiagramImport {
+  outline: string;
+  report: ImportReport;
+  elapsed_ms: number;
+}
+
 export interface ApplyResult {
   revision: number;
   issues: ValidationIssue[];
@@ -132,6 +150,7 @@ export type ErrorCode =
   | "E_VERSION_TOO_NEW"
   | "E_BAD_TARGET"
   | "E_EXPORT_IO"
+  | "E_IMPORT"
   | "E_INTERNAL";
 
 export interface CommandError {

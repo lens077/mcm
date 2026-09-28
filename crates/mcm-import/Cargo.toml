@@ -1,0 +1,20 @@
+[package]
+name = "mcm-import"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+# rten（纯 Rust 推理引擎）要求 1.94；工作区其余 crate 仍是 1.85。
+rust-version = "1.94"
+
+[dependencies]
+mcm-core = { path = "../mcm-core" }
+# 与 tauri-utils 共用同一版 html5ever，不额外引入解析器。
+dom_query = { version = "0.27.0", default-features = false }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "bmp"] }
+rten = { version = "0.26.0", default-features = false, features = ["onnx_format"] }
+rten-tensor = "0.26.0"
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

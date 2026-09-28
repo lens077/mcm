@@ -13,6 +13,7 @@ import { OutlineEditor } from "../panels/OutlineEditor";
 import { IssuesPanel } from "../panels/IssuesPanel";
 import { SearchBar } from "../panels/SearchBar";
 import { ExportDialog } from "../panels/ExportDialog";
+import { ImportDialog } from "../panels/ImportDialog";
 import { ShortcutsHelp } from "../panels/ShortcutsHelp";
 import { WbsView } from "../views/wbs/WbsView";
 import { GraphView } from "../views/graph/GraphView";
@@ -74,6 +75,7 @@ export function App() {
   const [selected, setSelected] = useState<ElementRef | null>(null);
   const [busy, setBusy] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [undoDepth, setUndoDepth] = useState(0);
   const [redoDepth, setRedoDepth] = useState(0);
@@ -184,6 +186,20 @@ export function App() {
     if (choice === "save") return (await doSave()) !== null;
     return true;
   }, [session?.title, doSave]);
+
+  // An imported diagram becomes a fresh, unsaved plan — same guard as "new".
+  const loadImported = useCallback(
+    async (text: string): Promise<boolean> => {
+      if (!hasTauri()) return false;
+      if (!(await confirmClose())) return false;
+      await ipc.sessionNew();
+      const result = await ipc.outlineTextApply(text);
+      setIssues(result.issues);
+      await refreshAll();
+      return true;
+    },
+    [confirmClose, refreshAll],
+  );
 
   useEffect(() => {
     if (!hasTauri()) return;
@@ -351,6 +367,9 @@ export function App() {
           onOpen={() => {
             void doOpen();
           }}
+          onImport={() => {
+            setImportOpen(true);
+          }}
           onSave={() => {
             void doSave();
           }}
@@ -398,6 +417,14 @@ export function App() {
         onClose={() => {
           setShortcutsOpen(false);
         }}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onClose={() => {
+          setImportOpen(false);
+        }}
+        onLoad={loadImported}
       />
 
       <ExportDialog

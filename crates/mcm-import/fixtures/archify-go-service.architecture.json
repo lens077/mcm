@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Go 服务分层",
+    "locale": "zh-CN",
+    "viewBox": [
+      1440,
+      520
+    ]
+  },
+  "components": [
+    {
+      "id": "consul",
+      "type": "cloud",
+      "label": "Consul",
+      "sublabel": "服务注册 + 健康检查",
+      "pos": [
+        290,
+        70
+      ],
+      "size": [
+        180,
+        50
+      ]
+    },
+    {
+      "id": "api",
+      "type": "cloud",
+      "label": "backend/api/{svc}/v1",
+      "sublabel": "Buf 契约 · 同出 Go 与 TS",
+      "pos": [
+        520,
+        70
+      ],
+      "size": [
+        180,
+        50
+      ]
+    },
+    {
+      "id": "kratos",
+      "type": "external",
+      "label": "Kratos Gateway",
+      "sublabel": "discovery:///<注册名>",
+      "pos": [
+        60,
+        200
+      ],
+      "size": [
+        170,
+        50
+      ]
+    },
+    {
+      "id": "server",
+      "type": "backend",
+      "label": "internal/server",
+      "sublabel": "Connect handler · health · 拦截器",
+      "pos": [
+        290,
+        200
+      ],
+      "size": [
+        180,
+        50
+      ]
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "internal/service",
+      "sublabel": "proto ≠ 领域对象",
+      "pos": [
+        520,
+        200
+      ],
+      "size": [
+        180,
+        50
+      ]
+    },
+    {
+      "id": "biz",
+      "type": "backend",
+      "label": "internal/biz",
+      "sublabel": "domain + application",
+      "pos": [
+        750,
+        200
+      ],
+      "size": [
+        170,
+        50
+      ]
+    },
+    {
+      "id": "data",
+      "type": "backend",
+      "label": "internal/data",
+      "sublabel": "仓储实现",
+      "pos": [
+        970,
+        200
+      ],
+      "size": [
+        170,
+        50
+      ]
+    },
+    {
+      "id": "models",
+      "type": "backend",
+      "label": "internal/data/models",
+      "sublabel": "sqlc 生成的 Querier",
+      "pos": [
+        970,
+        330
+      ],
+      "size": [
+        170,
+        50
+      ]
+    },
+    {
+      "id": "pg",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "queries + schema",
+      "pos": [
+        1210,
+        140
+      ],
+      "size": [
+        160,
+        50
+      ]
+    },
+    {
+      "id": "dragonfly",
+      "type": "database",
+      "label": "Dragonfly",
+      "sublabel": "cart / order 缓存",
+      "pos": [
+        1210,
+        260
+      ],
+      "size": [
+        160,
+        50
+      ]
+    },
+    {
+      "id": "config",
+      "type": "cloud",
+      "label": "Config Center",
+      "sublabel": "Bootstrap 下发",
+      "pos": [
+        60,
+        330
+      ],
+      "size": [
+        170,
+        50
+      ]
+    },
+    {
+      "id": "conf",
+      "type": "cloud",
+      "label": "internal/conf/v1",
+      "sublabel": "conf.proto + protovalidate",
+      "pos": [
+        290,
+        330
+      ],
+      "size": [
+        180,
+        50
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "backend/services/{service}/internal/ — 靠目录与 internal/ 强制边界",
+      "wraps": [
+        "server",
+        "service",
+        "biz",
+        "data",
+        "models",
+        "conf"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "from": "kratos",
+      "to": "server",
+      "variant": "emphasis"
+    },
+    {
+      "from": "server",
+      "to": "service"
+    },
+    {
+      "from": "service",
+      "to": "biz"
+    },
+    {
+      "from": "biz",
+      "to": "data"
+    },
+    {
+      "from": "data",
+      "to": "pg"
+    },
+    {
+      "from": "data",
+      "to": "dragonfly"
+    },
+    {
+      "from": "data",
+      "to": "models",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "server",
+      "to": "consul",
+      "variant": "dashed",
+      "label": "注册",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        425,
+        160
+      ]
+    },
+    {
+      "from": "api",
+      "to": "service",
+      "variant": "dashed",
+      "label": "生成代码",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        655,
+        160
+      ]
+    },
+    {
+      "from": "conf",
+      "to": "server",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "config",
+      "to": "conf",
+      "variant": "dashed"
+    }
+  ]
+}
