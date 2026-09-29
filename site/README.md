@@ -70,3 +70,11 @@ Pangolin 侧（已配置好，无需重复操作）：
 
 页面上的每个数字都来自仓库内实测，并标注了对照预算——不写没有依据的宣传话术。
 Visio 那段写了真实的踩坑经过而非只讲成功，这是刻意的：目标读者会看实现。
+
+## SEO
+
+- 标题、描述、关键词在 `src/pages/index.astro` 顶部的 `seo` 常量里，og 标签复用同一份。
+  标题和关键词里的词正文都要出现（眉题、views 说明），改文案时两边一起看。
+- canonical 固定指向 `https://mcm.apikv.com/`，GitHub Pages 镜像也指回主站，只收录一份。
+- `public/robots.txt`、`public/sitemap.xml` 手写，加页面时往 sitemap 里加一条。
+  镜像部署在 `/mcm` 子路径下，那里的 robots.txt 不在域名根目录，搜索引擎不会读，不影响。
