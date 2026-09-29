@@ -9,6 +9,19 @@ const repo = "https://github.com/lens077/mcm";
 const asset = (p: string) => `${import.meta.env.BASE_URL.replace(/\/$/, "")}/${p.replace(/^\//, "")}`;
 const releases = `${repo}/releases/latest`;
 
+// TDK 按项目规划类的行业搜索词写（百度下拉联想：项目规划软件、甘特图软件、WBS 工作分解结构、里程碑计划）。
+// 时间线视图是甘特式布局（mcm-core 的 layout/timeline.rs），任务分解就是 WBS，这两个词可以如实使用。
+// 标题和关键词里的词正文都要出现：眉题写"开源项目规划工具"，views 的说明里带 WBS 与甘特图。
+// canonical 固定指向主站：GitHub Pages 镜像（/mcm 子路径）内容相同，两处都指回 mcm.apikv.com，
+// 搜索引擎只收录一份，不当成重复页面。
+const seo = {
+  title: "MCM 开源项目规划工具 - 大纲生成甘特图、WBS，导出 XMind/Visio",
+  description:
+    "MCM 免费开源的桌面项目规划工具：写结构化大纲，生成任务分解（WBS）、依赖网络图、甘特式时间线和里程碑，导出 XMind、Visio 可编辑文件；macOS 与 Windows 版完全离线。",
+  keywords: "开源项目规划工具,甘特图,WBS,里程碑,XMind",
+  canonical: "https://mcm.apikv.com/",
+};
+
 // 全部取自仓库内已验证的实测结果，不写没有依据的数字。
 const facts = [
   { value: "23 ms", label: "冷启动 P95", note: "预算 2 s" },
@@ -42,9 +55,9 @@ const ocrModels = [
 // 截图由 scripts/capture-screens.mjs 生成：场景数据出自 mcm-core，
 // 再由应用真实的前端渲染器绘制——不是另画的示意图。
 const views = [
-  { key: "wbs", name: "任务分解", desc: "层级结构与归属，一眼看清谁负责哪块。" },
+  { key: "wbs", name: "任务分解", desc: "WBS 层级结构与归属，一眼看清谁负责哪块。" },
   { key: "graph", name: "依赖网络", desc: "分层 DAG 呈现前后置关系，环路直接标红。" },
-  { key: "timeline", name: "时间线", desc: "依赖驱动推导日期，拖动即改期。" },
+  { key: "timeline", name: "时间线", desc: "甘特图：依赖驱动推导日期，拖动即改期。" },
   { key: "milestones", name: "里程碑", desc: "关键节点与它所关联的任务。" },
 ];
 
@@ -66,17 +79,14 @@ const outline = `%mcm 1
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MCM — 写下大纲，得到可继续编辑的规划</title>
-    <meta
-      name="description"
-      content="面向开发者与产品经理的桌面端项目规划工具。结构化大纲输入，四种联动视图，可从架构图截图或 archify HTML 导入，导出为 XMind 与 Visio 中可继续编辑的文件。macOS 与 Windows，完全离线。"
-    />
-    <meta property="og:title" content="MCM — 写下大纲，得到可继续编辑的规划" />
-    <meta
-      property="og:description"
-      content="结构化大纲输入，四种联动视图，导出为 XMind 与 Visio 中可继续编辑的文件。"
-    />
+    <title>{seo.title}</title>
+    <meta name="description" content={seo.description} />
+    <meta name="keywords" content={seo.keywords} />
+    <link rel="canonical" href={seo.canonical} />
+    <meta property="og:title" content={seo.title} />
+    <meta property="og:description" content={seo.description} />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content={seo.canonical} />
     <link rel="icon" href={asset("favicon.svg")} type="image/svg+xml" />
   </head>
 
@@ -99,7 +109,8 @@ const outline = `%mcm 1
     <main id="main">
       <!-- 首屏：一句话说清差异化 -->
       <section class="hero wrap">
-        <p class="eyebrow">桌面端 · macOS 与 Windows · 完全离线</p>
+        <!-- &nbsp; 把"·"和"macOS 与 Windows"绑在一起：窄屏折行只落在分段之间，不会以"·"开头 -->
+        <p class="eyebrow">开源项目规划工具&nbsp;· 桌面端&nbsp;· macOS&nbsp;与&nbsp;Windows&nbsp;· 完全离线</p>
         <h1>写下大纲，<br />得到能继续编辑的规划。</h1>
         <p class="lede">
           用一段结构化文本描述项目，MCM 解析、校验并投影成四种联动视图；
