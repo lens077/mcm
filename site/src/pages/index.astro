@@ -14,13 +14,17 @@ const releases = `${repo}/releases/latest`;
 // 标题和关键词里的词正文都要出现：眉题写"开源项目规划工具"，views 的说明里带 WBS 与甘特图。
 // canonical 固定指向主站：GitHub Pages 镜像（/mcm 子路径）内容相同，两处都指回 mcm.apikv.com，
 // 搜索引擎只收录一份，不当成重复页面。
+// 产品名按 Sumery 品牌系统（work/docs/brand/DESIGN.md）：可搜索名 Sumery Pyxis，短名 Pyxis。
+// 原名 MCM 写进描述和首屏，老用户按旧名也能搜到、认出来；.mcm 是文件格式名，不改。
 const seo = {
-  title: "MCM 开源项目规划工具 - 大纲生成甘特图、WBS，导出 XMind/Visio",
+  title: "Sumery Pyxis 开源项目规划工具 - 大纲生成甘特图、WBS",
   description:
-    "MCM 免费开源的桌面项目规划工具：写结构化大纲，生成任务分解（WBS）、依赖网络图、甘特式时间线和里程碑，导出 XMind、Visio 可编辑文件；macOS 与 Windows 版完全离线。",
-  keywords: "开源项目规划工具,甘特图,WBS,里程碑,XMind",
+    "希曼 Sumery 的 Pyxis（原名 MCM）开源桌面项目规划工具：写结构化大纲，生成 WBS、依赖网络图、甘特式时间线和里程碑，导出 XMind、Visio 可编辑文件；macOS、Windows 完全离线。",
+  keywords: "开源项目规划工具,甘特图,WBS,XMind,Sumery Pyxis",
   canonical: "https://mcm.apikv.com/",
 };
+// 发版后同步：下载说明里的版本号。
+const version = "v0.2.1";
 
 // 全部取自仓库内已验证的实测结果，不写没有依据的数字。
 const facts = [
@@ -86,8 +90,11 @@ const outline = `%mcm 1
     <meta property="og:title" content={seo.title} />
     <meta property="og:description" content={seo.description} />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sumery Pyxis" />
     <meta property="og:url" content={seo.canonical} />
-    <link rel="icon" href={asset("favicon.svg")} type="image/svg+xml" />
+    <link rel="icon" href={asset("favicon-light.png")} type="image/png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" href={asset("favicon-dark.png")} type="image/png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href={asset("favicon.png")} type="image/png" />
   </head>
 
   <body>
@@ -95,7 +102,13 @@ const outline = `%mcm 1
 
     <header class="site-head">
       <div class="wrap head-inner">
-        <span class="brand">MCM</span>
+        <a class="brand" href={asset("")} aria-label="Sumery Pyxis 首页">
+          <picture><source srcset={asset("favicon-dark.png")} media="(prefers-color-scheme: dark)" /><img class="brand-icon" src={asset("favicon-light.png")} alt="" width="28" height="28" /></picture>
+          <span class="brand-text">
+            <span class="brand-kicker">希曼 · SUMERY</span>
+            <span class="brand-name">Pyxis</span>
+          </span>
+        </a>
         <nav aria-label="主导航">
           <a href="#why">为什么</a>
           <a href="#how">怎么用</a>
@@ -113,7 +126,7 @@ const outline = `%mcm 1
         <p class="eyebrow">开源项目规划工具&nbsp;· 桌面端&nbsp;· macOS&nbsp;与&nbsp;Windows&nbsp;· 完全离线</p>
         <h1>写下大纲，<br />得到能继续编辑的规划。</h1>
         <p class="lede">
-          用一段结构化文本描述项目，MCM 解析、校验并投影成四种联动视图；
+          用一段结构化文本描述项目，Pyxis 解析、校验并投影成四种联动视图；
           导出的 XMind 与 Visio 文件是<strong>真正的可编辑对象</strong>——
           节点能改字，连线拖动形状时会跟随，而不是一张动不了的图片。
         </p>
@@ -122,14 +135,18 @@ const outline = `%mcm 1
           <a class="button primary" href={releases}>下载安装包</a>
           <a class="button" href={repo}>查看源码</a>
         </div>
-        <p class="cta-note">当前版本 v0.2.0：提供 macOS <code>.dmg</code> 与 Windows <code>.exe</code> 安装包，附 SHA256 校验和。</p>
+        <p class="cta-note">当前版本 {version}：提供 macOS <code>.dmg</code> 与 Windows <code>.exe</code> 安装包，附 SHA256 校验和。</p>
+        <p class="cta-note">
+          Pyxis 原名 MCM，{version} 起改名。已装旧版的直接装新版即可：规划文件、最近打开和 OCR 模型照常读取，
+          只有浅色 / 深色主题要重选一次；旧的 MCM 可以删掉。
+        </p>
       </section>
 
       <!-- 产品实拍：真实渲染，非示意图 -->
       <section class="shot-hero wrap" aria-label="产品界面">
         <img
           src={asset("shots/wbs.png")}
-          alt="MCM 界面：左侧大纲文本，中间任务分解视图，右侧校验结果"
+          alt="Pyxis 界面：左侧大纲文本，中间任务分解视图，右侧校验结果"
           width="2880"
           height="1800"
           loading="eager"
@@ -168,7 +185,7 @@ const outline = `%mcm 1
             </p>
           </div>
         </div>
-        <p class="claim">MCM 两边都要：<strong>输入即文件，文件即输入。</strong></p>
+        <p class="claim">Pyxis 两边都要：<strong>输入即文件，文件即输入。</strong></p>
       </section>
 
       <!-- 语法演示 -->
@@ -370,10 +387,19 @@ const outline = `%mcm 1
       </section>
     </main>
 
+    <!-- 页脚按 Sumery 品牌系统 §6 统一：品牌 · 主体 · ICP · 公安备案 · 支持邮箱，顺序固定 -->
     <footer class="site-foot">
       <div class="wrap foot-inner">
-        <span>MCM · MIT 许可</span>
-        <span><a href={repo}>GitHub</a></span>
+        <!-- 分隔符用表达式写出：Astro 压缩 HTML 时会吃掉链接前的换行空白 -->
+        <span>
+          {"希曼 Sumery · 防城港上思希曼科技工作室 · "}
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">桂ICP备2022004535号-5</a>
+          {" · "}
+          <a href="https://beian.mps.gov.cn/#/query/webSearch?code=45060002450628" target="_blank" rel="noopener noreferrer">桂公网安备45060002450628号</a>
+          {" · "}
+          <a href="mailto:support@looke.cloud">support@looke.cloud</a>
+        </span>
+        <span>{"Sumery Pyxis · MIT 许可 · "}<a href={repo}>GitHub</a></span>
       </div>
     </footer>
 
@@ -392,11 +418,46 @@ const outline = `%mcm 1
         justify-content: space-between;
         height: 60px;
       }
+      /* 品牌标记与应用侧栏同一结构（品牌系统 §4）：图标 + kicker + 短名 */
       .brand {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: 19px;
-        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        color: var(--ink);
+        text-decoration: none;
+      }
+      .brand:hover {
+        color: var(--ink);
+      }
+      .brand picture { display: contents; }
+      .brand-icon {
+        flex: none;
+        width: 28px;
+        height: 28px;
+      }
+      .brand-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .brand-kicker {
+        color: var(--ink-muted);
+        font: 500 10.5px/1.2 var(--font-mono);
+        letter-spacing: 0.12em;
+        white-space: nowrap;
+      }
+      .head-inner nav a {
+        white-space: nowrap;
+      }
+      /* 窄屏放不下品牌标记加五个链接：页内锚点往下滑就能看到，只留「源码」 */
+      @media (max-width: 640px) {
+        .head-inner nav a:not(:last-child) {
+          display: none;
+        }
+      }
+      .brand-name {
+        font: 600 15px/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+        letter-spacing: 0.01em;
       }
       .head-inner nav {
         display: flex;
@@ -457,15 +518,16 @@ const outline = `%mcm 1
         border-color: var(--accent);
         color: var(--ink);
       }
+      /* 黄绿底上必须用深色字（品牌系统 §3） */
       .button.primary {
-        background: var(--accent);
-        border-color: var(--accent);
-        color: #fffdf7;
+        background: var(--primary-fill);
+        border-color: var(--primary-fill);
+        color: var(--on-primary);
       }
       .button.primary:hover {
-        background: var(--accent-strong);
-        border-color: var(--accent-strong);
-        color: #fffdf7;
+        background: var(--primary-fill-strong);
+        border-color: var(--primary-fill-strong);
+        color: var(--on-primary);
       }
       .cta-note {
         margin: var(--space-4) 0 0;
@@ -733,10 +795,15 @@ const outline = `%mcm 1
       }
       .foot-inner {
         display: flex;
+        flex-wrap: wrap;
         justify-content: space-between;
+        gap: var(--space-2) var(--space-6);
         padding-block: var(--space-6);
         font-size: 13px;
         color: var(--ink-muted);
+      }
+      .foot-inner a {
+        color: inherit;
       }
     </style>
   </body>

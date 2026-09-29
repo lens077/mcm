@@ -13,8 +13,13 @@
   --ink: #18211d;
   --ink-muted: #657068;
   --line: #c8c9bb;
-  --accent: #d84f35;
-  --accent-strong: #a92f20;
+  /* 品牌色相 Pyxis 黄绿（Sumery 品牌系统 §3，与 src/design/tokens.css 同值）：
+     --accent 是可读的文字 / 描边色，填充用 --primary-fill，按钮文字用深色。 */
+  --accent: #3f6212;
+  --accent-strong: #365314;
+  --primary-fill: #84cc16;
+  --primary-fill-strong: #65a30d;
+  --on-primary: #1b1547;
   --signal: #16715c;
 
   --space-1: 4px;
@@ -42,8 +47,10 @@
     --ink: #edf1e9;
     --ink-muted: #9eaaa2;
     --line: #3d4942;
-    --accent: #ff795d;
-    --accent-strong: #ff9a82;
+    --accent: #a3e635;
+    --accent-strong: #bef264;
+    --primary-fill: #a3e635;
+    --primary-fill-strong: #bef264;
     --signal: #55c7a6;
   }
 }

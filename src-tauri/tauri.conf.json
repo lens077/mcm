@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MCM",
+  "productName": "Sumery Pyxis",
   "version": "0.2.0",
-  "identifier": "dev.mcm.planner",
+  "identifier": "com.sumery.pyxis",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MCM 项目规划",
+        "title": "Sumery Pyxis",
         "width": 1440,
         "height": 920,
         "minWidth": 960,
@@ -36,15 +36,20 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "项目规划桌面工具",
+    "publisher": "Sumery",
+    "shortDescription": "开源的桌面项目规划工具",
     "longDescription": "结构化大纲录入、确定性校验，四种联动视图；导出为 XMind 与 Visio 中可继续编辑的文件，而非位图。",
-    "copyright": "MIT",
+    "copyright": "© Sumery",
     "macOS": {
       "minimumSystemVersion": "10.15"
     },
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "startMenuFolder": "Sumery",
+        "installMode": "currentUser"
       }
     }
   }

@@ -1,6 +1,8 @@
-# MCM 宣传站点
+# Sumery Pyxis 官网
 
-Astro 7 静态站点，产物约 24 KB。
+Astro 7 静态站点，产物约 24 KB。产品原名 MCM，2026-09-30 改名 Sumery Pyxis（罗盘座）；域名 `mcm.apikv.com` 不改。
+页眉品牌标记、配色与页脚按 Sumery 品牌系统（`work/docs/brand/DESIGN.md` §4、§3、§6）；
+`public/favicon-{light,dark}.png` / `favicon.png` 由 Libra 仓库 `tools/brand-icon/install.sh pyxis` 装入。发版后同步 `index.astro` 顶部的 `version`。
 
 **线上地址**
 - 主站 https://mcm.apikv.com （node1，`make site-deploy` 发布）

@@ -328,9 +328,13 @@ export function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
+        {/* Sumery 品牌标记（品牌系统 §4）：产品图标 + kicker + 短名，品牌已在 kicker 里。 */}
         <div className="brand">
-          <span className="eyebrow">MCM</span>
-          <strong>项目规划</strong>
+          <picture><source srcSet="/favicon-dark.png" media="(prefers-color-scheme: dark)" /><img alt="" className="brand-icon" height={20} src="/favicon-light.png" width={20} /></picture>
+          <div className="brand-text">
+            <span className="brand-kicker">SUMERY · PYXIS</span>
+            <strong className="brand-name">Pyxis</strong>
+          </div>
         </div>
         <SearchBar revision={session?.revision ?? 0} onLocate={setSelected} />
         <nav aria-label="视图">

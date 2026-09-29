@@ -16,8 +16,16 @@
   background: color-mix(in srgb, var(--surface) 82%, transparent);
 }
 
-.brand { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-6); }
-.brand strong { font: 700 22px/1.1 var(--font-display); letter-spacing: -0.02em; }
+.brand { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-6); }
+.brand-icon { flex: none; width: 20px; height: 20px; }
+.brand picture { display: contents; }
+.brand-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brand-kicker { color: var(--ink-muted); font: 500 10.5px/1.2 var(--font-mono); letter-spacing: .12em; }
+.brand-name {
+  color: var(--ink);
+  font: 600 13px/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+  letter-spacing: .01em;
+}
 
 .tab {
   padding: var(--space-2) var(--space-3);
@@ -118,13 +126,13 @@
   padding: var(--space-2) var(--space-4);
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #fff;
+  background: var(--primary-fill);
+  color: var(--on-primary);
   font-weight: 600;
   cursor: pointer;
   transition: background var(--motion-fast) ease;
 }
-.primary:hover:not(:disabled) { background: var(--accent-strong); }
+.primary:hover:not(:disabled) { background: var(--primary-fill-strong); }
 .primary:disabled { opacity: .6; cursor: progress; }
 .primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 

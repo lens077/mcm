@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Brand and product are separate names on purpose (Sumery brand system,
+	     work/docs/brand/DESIGN.md section 1).
+
+	     CFBundleDisplayName is what Finder, Spotlight and a store listing show,
+	     so it carries the brand. CFBundleName is the menu bar's name; Apple
+	     truncates it past 15 characters, so it is the product alone.
+
+	     The repository, the mcm-* crates, the mcm-app binary and the .mcm file
+	     format keep their names; the desktop product the user sees is Pyxis.
+
+	     Tauri merges this file into the generated Info.plist. -->
+	<key>CFBundleName</key>
+	<string>Pyxis</string>
+	<key>CFBundleDisplayName</key>
+	<string>Sumery Pyxis</string>
+</dict>
+</plist>
