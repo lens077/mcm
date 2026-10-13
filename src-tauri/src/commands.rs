@@ -380,7 +380,7 @@ pub fn diagram_import(
 
 /// `accurate` is only called for images with the accurate model selected,
 /// so HTML imports never load (or require) the downloaded model.
-fn import_file(
+pub(crate) fn import_file(
     path: &Path,
     model: OcrModel,
     accurate: impl FnOnce() -> CommandResult<Arc<OcrEngine>>,

@@ -10,12 +10,16 @@
 //! ```
 
 use std::fmt::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+use crate::commands::{CommandError, import_file};
 use mcm_core::edit::EditCommand;
 use mcm_core::model::{Schedule, TaskId};
 use mcm_core::scene::ViewKind;
 use mcm_core::session::Session;
+use mcm_import::OcrEngine;
+use mcm_import::OcrModel;
 
 /// One scenario from quickstart.md §端到端验证场景.
 pub struct Scenario {
@@ -215,6 +219,98 @@ fn scenario_close_guard(_ctx: &mut Context) -> Result<(), String> {
     check(session.is_dirty(), "编辑后应标记为脏")
 }
 
+/// Repository fixture for the import scenarios: a 2522×878 archify screenshot
+/// of a Go service layering (12 boxes, one dashed group, 11 arrows), plus the
+/// HTML export of the very same diagram.
+fn import_fixture(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../crates/mcm-import/fixtures")
+        .join(name)
+}
+
+/// The accurate model is not installed in CI; image imports use the built-in
+/// fast model, so the download is never triggered.
+fn no_accurate() -> Result<Arc<OcrEngine>, CommandError> {
+    Err(CommandError::new("E_MODEL_MISSING", "高精度模型未安装"))
+}
+
+/// Scenario 12: an uploaded screenshot becomes a valid plan — the full chain
+/// the import dialog drives: file → `diagram_import` → outline → parse →
+/// validate → session.
+fn scenario_import_image(_ctx: &mut Context) -> Result<(), String> {
+    let imported = import_file(
+        &import_fixture("archify-go-service.png"),
+        OcrModel::Fast,
+        no_accurate,
+    )
+    .map_err(|error| format!("截图导入失败：{}", error.message))?;
+
+    check(
+        imported
+            .outline
+            .starts_with("%mcm 1\n%title archify-go-service\n"),
+        "导入结果应以版本头和标题开头",
+    )?;
+    check(imported.report.nodes == 12, "应识别出 12 个方框")?;
+    check(imported.report.groups == 1, "应识别出 1 个分组框")?;
+    check(imported.report.dependencies == 11, "应识别出 11 条箭头")?;
+
+    // The outline is ordinary input for the regular pipeline: it must parse
+    // and validate cleanly, not merely look like an outline.
+    let mut session = Session::new();
+    session.apply_outline_text(&imported.outline);
+    check(
+        session.plan().tasks.len() == 13,
+        "规划应有 13 个任务（12 个方框 + 1 个分组父任务）",
+    )?;
+    check(
+        session.plan().dependencies.len() == 11,
+        "规划应有 11 条依赖",
+    )?;
+    check(session.error_count() == 0, "导入的规划不应有校验错误")?;
+    check(
+        session
+            .plan()
+            .tasks
+            .iter()
+            .any(|task| task.parent.is_some()),
+        "分组框内的方框应成为有父任务的子任务",
+    )?;
+    let scene = session.scene(ViewKind::Wbs);
+    check(!scene.nodes.is_empty(), "任务分解视图不应为空")
+}
+
+/// Scenario 13: the archify HTML of the same diagram imports precisely, and
+/// agrees with the screenshot on every dependency (docs/image-import.md).
+fn scenario_import_html(_ctx: &mut Context) -> Result<(), String> {
+    let html = import_file(
+        &import_fixture("archify-go-service.html"),
+        OcrModel::Fast,
+        no_accurate,
+    )
+    .map_err(|error| format!("HTML 导入失败：{}", error.message))?;
+    check(
+        html.outline.starts_with("%mcm 1\n%title Go 服务分层\n"),
+        "HTML 导入应使用图内标题",
+    )?;
+    check(html.report.dependencies == 11, "HTML 应给出 11 条依赖")?;
+
+    let image = import_file(
+        &import_fixture("archify-go-service.png"),
+        OcrModel::Fast,
+        no_accurate,
+    )
+    .map_err(|error| format!("截图导入失败：{}", error.message))?;
+    check(
+        html.report.dependencies == image.report.dependencies,
+        "同一张图的截图与 HTML 导入应给出一致的依赖数",
+    )?;
+
+    let mut session = Session::new();
+    session.apply_outline_text(&html.outline);
+    check(session.error_count() == 0, "HTML 导入的规划不应有校验错误")
+}
+
 /// The shared checklist, mirrored by the Windows WebDriver suite.
 pub const SCENARIOS: &[Scenario] = &[
     Scenario {
@@ -261,6 +357,16 @@ pub const SCENARIOS: &[Scenario] = &[
         id: "S11",
         name: "未保存关闭守卫",
         run: scenario_close_guard,
+    },
+    Scenario {
+        id: "S12",
+        name: "截图导入为规划",
+        run: scenario_import_image,
+    },
+    Scenario {
+        id: "S13",
+        name: "archify HTML 导入与图文一致",
+        run: scenario_import_html,
     },
 ];
 
@@ -335,8 +441,10 @@ mod tests {
 
     #[test]
     fn the_checklist_covers_the_quickstart_scenarios() {
-        // quickstart.md §端到端验证场景: 1,3,5,6,7,8,9,11 are automatable.
-        for required in ["S1", "S3", "S5", "S6", "S7", "S8", "S9", "S11"] {
+        // quickstart.md §端到端验证场景: 1,3,5,6,7,8,9,11,12,13 are automatable.
+        for required in [
+            "S1", "S3", "S5", "S6", "S7", "S8", "S9", "S11", "S12", "S13",
+        ] {
             assert!(
                 SCENARIOS.iter().any(|scenario| scenario.id == required),
                 "missing scenario {required}"

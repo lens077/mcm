@@ -161,7 +161,7 @@ pnpm build                 # ⚠️ 必须先跑：Tauri 的 generate_context! �
 cargo test --workspace     # 415 个
 pnpm test                  # 76 个
 cargo bench -p mcm-core    # 7 项性能预算（超预算即 panic）
-pnpm smoke                 # 9 个端到端场景（双平台通用）
+pnpm smoke                 # 11 个端到端场景（双平台通用）
 actionlint                 # 校验 .github/workflows/*.yml（brew install actionlint）
 ```
 
@@ -217,7 +217,7 @@ npm install playwright && npx playwright install chromium
 ### 双平台冒烟的安排
 
 `pnpm smoke`（`--selftest`）是纯 Rust、与平台无关，因此 **CI 在 macOS 与
-Windows 上都跑它**——同一批场景 ID（S1/S3/S5/S6/S7/S8/S9/S11）构成真正的
+Windows 上都跑它**——同一批场景 ID（S1/S2/S3/S5/S6/S7/S8/S9/S11/S12/S13）构成真正的
 双平台门槛。
 
 `tauri-driver` 不支持 macOS，所以 WebDriver UI 套件只能在 Windows 上跑。它

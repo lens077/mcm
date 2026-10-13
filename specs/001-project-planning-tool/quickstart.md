@@ -49,6 +49,12 @@ pnpm smoke:mac                # macOS 内置场景自检 harness（research.md R
 | 9 | 导出 Visio | 导出 `.vsdx` → 跑校验器 → Visio 打开：拖动形状 | 无修复警告；连线跟随形状；文本可编辑 | US6, SC-005 |
 | 10 | 冷启动 | `scripts/measure-startup`（两平台各 20 次取 P95） | ≤ 2s | SC-003 |
 | 11 | 关闭保护 | 有未保存更改时关窗 | 提示保存/放弃/取消 | FR-016 |
+| 12 | 截图导入 | 「导入图表」选择 `crates/mcm-import/fixtures/archify-go-service.png` | 12 个方框、1 个分组、11 条箭头成为任务树；载入后规划校验零错误 | 导入图表 |
+| 13 | HTML 导入 | 「导入图表」选择同一张图的 `archify-go-service.html` | 结构精确导入，与截图导入给出一致的 11 条依赖 | 导入图表 |
+
+场景 4（规模性能）与 10（冷启动）由性能预算断言覆盖，不进场景清单；12/13 的文件选择框是
+原生对话框，WebDriver 无法驱动，因此由 `pnpm smoke`（`selftest.rs` S12/S13）在两个平台
+自动执行，UI 套件只守护对话框契约。导入的完整规则见 [docs/image-import.md](../../docs/image-import.md)。
 
 ## 性能预算断言（cargo bench / CI 阻断）
 

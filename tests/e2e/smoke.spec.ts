@@ -78,6 +78,32 @@ describe("MCM smoke", () => {
     await (await $('button[aria-label="关闭"]')).click();
   });
 
+  // The import chain itself (file → outline → plan) cannot run under WebDriver:
+  // the dialog picks files through the OS-native picker, which tauri-driver
+  // cannot drive. That half is covered by the shared checklist's S12/S13 in
+  // `src-tauri/src/selftest.rs`, which both platforms execute via `pnpm smoke`.
+  // What the UI suite can guard is the dialog contract the chain hangs off.
+  it("S12 导入对话框: offers screenshots, archify HTML and Mermaid", async () => {
+    await (await $('button[aria-label="导入图表"]')).click();
+    const dialog = await $('section[aria-label="导入图表"]');
+    await expect(dialog).toBeDisplayed();
+    await expect(dialog).toHaveTextContaining("截图");
+    await expect(dialog).toHaveTextContaining("archify");
+    await expect(dialog).toHaveTextContaining("Mermaid");
+    await expect(dialog).toHaveTextContaining("文件不会离开本机");
+    // The OCR model choice applies to screenshots only; both are offered and
+    // the fast one is the default.
+    await expect(dialog).toHaveTextContaining("识别模型");
+    const fast = await $('input[name="ocr-model"][value="fast"]');
+    await expect(fast).toBeDisplayed();
+    await expect(fast).toBeChecked();
+    await expect(await $('input[name="ocr-model"][value="accurate"]')).toBeDisplayed();
+    // Nothing has been recognised yet, so loading stays disabled.
+    await expect(await dialog.$("button=载入为新规划")).toBeDisabled();
+    await (await $('button[aria-label="关闭"]')).click();
+    await expect(dialog).not.toBeDisplayed();
+  });
+
   it("S11 搜索定位: matches are counted and navigable", async () => {
     await generate(OUTLINE);
     const search = await $('input[aria-label="搜索任务"]');

@@ -76,6 +76,17 @@ XMind、Visio。入口是工具栏的「导入图表」，实现位于 `crates/m
 同一张图的整条导入流程（OCR、方框、箭头、生成大纲）耗时约 380 ms。截图和对应的
 archify HTML 导入后，11 条箭头完全一致，由 `tests/html_fixture.rs` 守护。
 
+整条导入链路还是共享端到端清单的一部分：`selftest.rs` 的 S12 走
+「截图文件 → `diagram_import` 命令 → 大纲 → 解析 → 校验 → 规划」全链，S13 校验
+archify HTML 与截图给出一致的依赖。两个场景由 `pnpm smoke` 在 macOS 与 Windows
+双平台执行（WebDriver 无法驱动原生文件选择框，UI 套件只守护导入对话框契约）。
+改导入相关代码后跑：
+
+```bash
+pnpm smoke                                    # S12/S13 连同其余 9 个场景
+cargo test -p mcm-import -p mcm-app           # 单元与 fixture 测试
+```
+
 ## 两种识别模型
 
 | | 快速（默认） | 高精度 |

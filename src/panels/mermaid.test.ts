@@ -133,6 +133,9 @@ describe("label text", () => {
 });
 
 describe("parsing with mermaid", () => {
+  // mermaid's first render inside jsdom is heavy (measured ~11 s on a loaded
+  // machine, ~1 s in CI); the 5 s default makes this test flaky rather than
+  // wrong, so it gets an explicit budget.
   it("reads a flowchart's nodes, subgraphs and arrows", async () => {
     const code = `flowchart LR
   A["网关<br/>Nginx"] --> B(订单服务)
@@ -167,7 +170,7 @@ describe("parsing with mermaid", () => {
       { from: "A", to: "core", directed: true, label: null },
       { from: "B", to: "C", directed: true, label: '异步 "事件"' },
     ]);
-  });
+  }, 30_000);
 
   it("recognises other diagram types without converting them", async () => {
     const parsed = await parseMermaid("sequenceDiagram\n  A->>B: hi", "");
