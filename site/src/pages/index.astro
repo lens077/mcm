@@ -31,7 +31,8 @@ const facts = [
   { value: "23 ms", label: "冷启动 P95", note: "预算 2 s" },
   { value: "12.0 MB", label: "安装包体积（.dmg）", note: "预算 25 MB" },
   { value: "22 ms", label: "5000 任务解析 + 校验", note: "预算 200 ms" },
-  { value: "554", label: "自动化测试", note: "Rust 457 · 前端 97" },
+  { value: "561", label: "自动化测试", note: "Rust 457 · 前端 104" },
+  { value: "11 项", label: "端到端场景", note: "双平台执行，含截图导入" },
 ];
 
 // 下面这段是快速模型对 import-source.png 的原样输出（节选），没有手工修饰。
@@ -282,6 +283,11 @@ const outline = `%mcm 1
               archify 把节点、连线、分组都写成了 HTML 里的结构标注，
               所以直接读标注，不经过 OCR，文字一个不差。
               同一张图的截图和 HTML 分别导入，11 条箭头完全一致——这条由测试守着。
+            </p>
+            <p class="degrade">
+              整条导入链路（截图 → 大纲 → 解析 → 校验 → 规划）由端到端场景守着：
+              同一份场景清单在 macOS 与 Windows 双平台执行，导入结果直接进入
+              正常管线，规划零错误才算通过。
             </p>
             <p class="degrade">
               规划模型放不下的东西——连线上的文字、会成环的箭头、图例——
