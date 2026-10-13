@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // Cold-start budget probe (spec SC-003: ≤ 2s at P95, plan.md §Performance Goals).
 //
-// The release binary is launched with `--selftest`, which exercises the same
-// core paths the UI needs before it can paint, then exits. That gives a stable,
-// headless proxy for "launch to interactive" that works identically on macOS
-// and Windows CI.
+// The release binary is launched with `--boot-probe`, which exercises the same
+// core paths the UI needs before it can paint — outline in, validated plan
+// out, four scene projections — then exits. That gives a stable, headless
+// proxy for "launch to interactive" that works identically on macOS and
+// Windows CI. The `--selftest` scenario suite is deliberately NOT timed here:
+// its scenarios include real OCR, which would fold import work into the
+// startup budget.
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -40,11 +43,11 @@ function percentile(values, p) {
 
 const samples = [];
 // One discarded warm-up run keeps page-cache effects out of the sample.
-spawnSync(binary, ["--selftest"], { stdio: "ignore" });
+spawnSync(binary, ["--boot-probe"], { stdio: "ignore" });
 
 for (let index = 0; index < RUNS; index += 1) {
   const started = process.hrtime.bigint();
-  const result = spawnSync(binary, ["--selftest"], { stdio: "ignore" });
+  const result = spawnSync(binary, ["--boot-probe"], { stdio: "ignore" });
   const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
 
   if (result.status !== 0) {

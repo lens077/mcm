@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod boot_probe;
 mod commands;
 mod ocr_models;
 mod prefs;
@@ -12,6 +13,13 @@ fn main() {
     // Scripted scenario harness for platforms without a WebDriver (research R8).
     if std::env::args().any(|arg| arg == "--selftest") {
         selftest::main_selftest();
+    }
+
+    // Boot-path probe for the cold-start budget: same core paths the UI needs
+    // before first paint, without the scenario suite's OCR work, so the budget
+    // measures startup and nothing else.
+    if std::env::args().any(|arg| arg == "--boot-probe") {
+        boot_probe::main_boot_probe();
     }
 
     tauri::Builder::default()
