@@ -124,7 +124,7 @@ https://mcm.apikv.com
 
 [Releases](https://github.com/lens077/mcm/releases) 提供 macOS（`.dmg`）与
 Windows（`.msi` / `.exe`）安装包，附 `SHA256SUMS` 可校验。
-每次代码改动推送到 main 会自动递增补丁版本并发布新版。
+发版由 `make release` 触发（递增版本 → 提交 → 打标签）；普通推送只跑 CI，不产生版本。
 
 ## 文档
 
