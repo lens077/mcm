@@ -18,7 +18,7 @@
 | 格式 | `cargo fmt --all -- --check` | ☐ |
 | 性能预算 | `cargo bench -p mcm-core` | ☐ |
 | 前端测试 / lint / 构建 | `pnpm test` · `pnpm lint` · `pnpm build` | ☐ |
-| 场景冒烟（本平台） | macOS: `pnpm smoke:mac`；Windows: `pnpm e2e:win` | ☐ |
+| 场景冒烟（本平台） | macOS: `pnpm smoke`；Windows: `pnpm e2e:win` | ☐ |
 | 冷启动 P95 ≤ 2s | `node scripts/measure-startup.mjs` | ☐ |
 | 安装包 ≤ 25MB | `pnpm tauri build && pnpm check:bundle` | ☐ |
 

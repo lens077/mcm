@@ -265,3 +265,18 @@ Task: "T021 大纲编辑器面板 in src/panels/OutlineEditor.tsx"
 - 全部 63 个任务均含准确文件路径；契约测试任务与其契约文档条款一一对应
 - 每完成一个任务或逻辑组提交一次；每个 Checkpoint 可独立验收
 - 性能预算（T033/T060）与契约测试同为 CI 阻断项——宪法 II/VI/VII
+
+---
+
+## 后续变更（63 项完成之后）
+
+本文件是 v0.1.x 的实现记录，不是当前 backlog。之后的变化：
+
+- **T036** 的 `validate/incremental.rs` 未落地：编辑后走 `Session::revalidate()` 全量校验；
+  `PlanIndex` 消除 O(n²) 后满足单条编辑预算。
+- **T054** 的连接器 master 方案已移除：VSDX 所有形状内联 Geometry、不引用 master，
+  原因见 HANDOVER「踩过的坑：VSDX 连接线完全不渲染」。
+- **T058** 的 WebDriver 套件移至手动 `.github/workflows/e2e-windows.yml`，主 CI 只跑
+  共享场景清单（`pnpm smoke`）。
+- 规格之外新增：导入图表（截图 OCR / archify HTML / Mermaid / MDX）、高精度 OCR 模型
+  按需下载、品牌升级为 Sumery Pyxis、宣传站点与发布自动化。详见 README 与 HANDOVER。

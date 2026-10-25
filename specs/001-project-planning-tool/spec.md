@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-26
 
-**Status**: Draft
+**Status**: Implemented (v0.2.0)
 
 **Input**: User description: "项目规划桌面工具：用户（开发者/产品经理）输入项目描述，生成经校验的可交互规划视图（任务分解、依赖、里程碑、时间线），支持编辑并导出为 XMind (.xmind) 与 Visio (.vsdx) 可继续编辑的文件"
 

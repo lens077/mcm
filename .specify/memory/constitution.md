@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
 - Version change: (unfilled template) → 1.0.0 (initial ratification)
+- 1.0.1 (2026-10-25): 产品正式定名 Sumery Pyxis（原名 MCM），清除 TODO(PROJECT_NAME)。
+  原则内容未变，属 PATCH 修订。
 - Modified principles: all template placeholders replaced by 7 concrete principles:
   I. 跨平台桌面一致性 / II. 性能即功能 (NON-NEGOTIABLE) / III. 界面美观与体验标准 /
   IV. 结构化模型先行、校验后渲染 / V. 人类可编辑、无锁定的数据 /
@@ -10,13 +12,12 @@ Sync Impact Report
 - Removed sections: none
 - Templates: none modified — plan/spec/tasks templates read this constitution at runtime
   (per speckit-constitution scope guard).
-- Deferred items:
-  - TODO(PROJECT_NAME): 项目名 "MCM" 暂取自仓库目录名 mcm；确定正式产品名后以 PATCH 修订。
+- Deferred items: none
 -->
 
-# MCM Constitution
+# Sumery Pyxis Constitution
 
-MCM 是一款面向开发者与产品经理的桌面端项目规划工具：将项目描述转化为经校验的、
+Sumery Pyxis（原名 MCM）是一款面向开发者与产品经理的桌面端项目规划工具：将项目描述转化为经校验的、
 精美可交互的规划视图（行为范式对标 archify），并可导出为 XMind、Visio 等
 项目管理工具可继续编辑的文件格式。
 
@@ -129,4 +130,4 @@ Rust 核心的模型、校验、布局与导出逻辑必须有单元测试；模
 - **运行时指引**：Agent 开发上下文文件（如 CLAUDE.md 等）从本宪法派生，
   与本宪法冲突时以本宪法为准。
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-26
+**Version**: 1.0.1 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-10-25

@@ -3,9 +3,10 @@
 //
 //   node scripts/bump-version.mjs [patch|minor|major] [--dry-run]
 //
-// 版本在两处声明，必须一起改，否则 tauri 打出来的包名与 crate 版本会对不上：
+// 版本在三处声明，必须一起改，否则 tauri 打出来的包名与 crate 版本会对不上：
 //   - Cargo.toml          [workspace.package] version
 //   - src-tauri/tauri.conf.json   version
+//   - package.json        version
 //
 // Cargo.lock 里的工作区成员版本由调用方用 `cargo update -w` 刷新——用 cargo
 // 自己改比在这里做正则替换可靠。
@@ -25,6 +26,7 @@ const level = args.find((arg) => LEVELS.has(arg)) ?? "patch";
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const cargoPath = path.join(projectRoot, "Cargo.toml");
 const tauriPath = path.join(projectRoot, "src-tauri", "tauri.conf.json");
+const packagePath = path.join(projectRoot, "package.json");
 
 /** 只接受 x.y.z：预发布/构建元数据不在自动递增的范围内。 */
 function parse(version) {
@@ -82,11 +84,22 @@ if (tauri.version !== current) {
   );
 }
 
+const packageText = readFileSync(packagePath, "utf8");
+const packageJson = JSON.parse(packageText);
+if (packageJson.version !== current) {
+  throw new Error(
+    `版本声明不一致：Cargo.toml 为 ${current}，package.json 为 ${packageJson.version}。` +
+      "请先手工对齐再递增。",
+  );
+}
+
 if (!dryRun) {
   writeFileSync(cargoPath, writeCargoVersion(cargoText, current, next));
   // 保留原有缩进与末尾换行，避免产生无关 diff
   tauri.version = next;
   writeFileSync(tauriPath, `${JSON.stringify(tauri, null, 2)}\n`);
+  packageJson.version = next;
+  writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 }
 
 process.stderr.write(`${current} -> ${next} (${level}${dryRun ? ", dry-run" : ""})\n`);

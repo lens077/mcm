@@ -158,8 +158,8 @@ make gate                  # 一条命令跑完下面全部（推荐）
 # 或者逐项来。注意顺序：
 pnpm build                 # ⚠️ 必须先跑：Tauri 的 generate_context! 宏在编译期
                            #    嵌入前端产物，dist/ 不存在会直接编译失败
-cargo test --workspace     # 415 个
-pnpm test                  # 76 个
+cargo test --workspace     # 458 个
+pnpm test                  # 104 个
 cargo bench -p mcm-core    # 7 项性能预算（超预算即 panic）
 pnpm smoke                 # 11 个端到端场景（双平台通用）
 actionlint                 # 校验 .github/workflows/*.yml（brew install actionlint）
@@ -253,8 +253,8 @@ make release-watch        # 跟踪构建
 文件名内嵌的是代码里声明的版本，不一致会导致产物名与 Release 标签对不上。
 所以务必用 `make release` 而不是手工 `git tag`。
 
-版本在两处声明，由 `scripts/bump-version.mjs` 同步（两者不一致时直接报错）：
-`Cargo.toml` 的 `[workspace.package]` 与 `src-tauri/tauri.conf.json`。
+版本在三处声明，由 `scripts/bump-version.mjs` 同步（任一处不一致时直接报错）：
+`Cargo.toml` 的 `[workspace.package]`、`src-tauri/tauri.conf.json` 与根 `package.json`。
 `Cargo.lock` 交给 `cargo update -w` 刷新。
 
 产出：`.dmg`（macOS）、`.msi` 与 NSIS `.exe`（Windows），附 `SHA256SUMS`。
@@ -309,7 +309,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo bench -p mcm-core
 pnpm lint && pnpm build && pnpm test
-pnpm smoke:mac                        # 或 pnpm e2e:win
+pnpm smoke                            # 或 pnpm e2e:win
 node scripts/measure-startup.mjs      # 冷启动 P95 ≤ 2s
 node scripts/check-bundle-size.mjs    # 安装包 ≤ 25MB
 
@@ -339,7 +339,7 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
 ### 6.2 Windows 平台
 
-CI 的 windows-latest 全程通过（编译、417 测试、打包、场景冒烟、体积与冷启动
+CI 的 windows-latest 全程通过（编译、458 测试、打包、场景冒烟、体积与冷启动
 预算），`.msi` 与 NSIS `.exe` 已真实产出并随每次发版发布。
 
 仍未做的是**真人在 Windows 桌面上实际使用**：
@@ -415,10 +415,11 @@ CI 的 windows-latest 全程通过（编译、417 测试、打包、场景冒烟
    `icon.ico`（6 种尺寸）与 `icon.icns`，两者都登记在 `tauri.conf.json`
    的 `bundle.icon` 里。
 
-### 6.4 项目名
+### 6.4 项目名（已定）
 
-宪法中留有 `TODO(PROJECT_NAME)`——"MCM" 取自目录名，非正式定名。
-确定后改 `.specify/memory/constitution.md` 并做一次 PATCH 版本修订。
+正式产品名已定为 **Sumery Pyxis**（品牌 Sumery，产品 Pyxis；标识符 `com.sumery.pyxis`）。
+宪法已做 PATCH 修订（1.0.0 → 1.0.1）并清除 `TODO(PROJECT_NAME)`。
+仓库 `mcm`、crate `mcm-*`、可执行文件 `mcm-app`、文件格式 `.mcm` 属于工程名，保持不变。
 
 ---
 
