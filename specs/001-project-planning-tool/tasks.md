@@ -86,7 +86,7 @@ Tauri 单应用 + Rust workspace（见 plan.md 结构决策）：
 **Goal**: 依赖网络/时间线/里程碑三视图补齐 + 四视图选中联动、搜索、双主题、1000 任务流畅
 
 **Independent Test**: 对已生成规划逐视图核对呈现与联动（quickstart 场景 3–4）；
-`fixtures/perf/plan-1000.mcm` 缩放拖拽无可感知卡顿
+`crates/mcm-core/fixtures/perf/plan-1000.mcm` 缩放拖拽无可感知卡顿
 
 ### Implementation for User Story 2
 
@@ -98,7 +98,7 @@ Tauri 单应用 + Rust workspace（见 plan.md 结构决策）：
 - [X] T030 [US2] 跨视图选中联动：`src/app/selection.ts`（选中态单源 + 视图切换自动定位滚动，FR-007）接入四视图
 - [X] T031 [US2] 搜索：`src-tauri/src/commands.rs` `search` 命令 + `src/panels/SearchBar.tsx`（高亮、逐个跳转，FR-008）
 - [X] T032 [P] [US2] 全视图双主题样式角色：`src/design/tokens.css` 补齐全部 style_role 映射（节点/边/徽标/选中态双主题）+ 有限动效参数；开发用帧率浮层 `src/app/PerfOverlay.tsx`
-- [X] T033 [P] [US2] 性能夹具与基准：`crates/mcm-core/src/bin/gen_fixture.rs`（生成 `fixtures/perf/plan-1000.mcm` 与 5000 行大纲）+ `crates/mcm-core/benches/core_budgets.rs`（criterion：解析 5000 行 ≤200ms、scene_get ≤50ms、单条编辑 ≤50ms，超预算 CI 失败）
+- [X] T033 [P] [US2] 性能夹具与基准：`crates/mcm-core/src/bin/gen_fixture.rs`（生成 `crates/mcm-core/fixtures/perf/plan-1000.mcm` 与 5000 行大纲）+ `crates/mcm-core/benches/core_budgets.rs`（criterion：解析 5000 行 ≤200ms、scene_get ≤50ms、单条编辑 ≤50ms，超预算 CI 失败）
 
 **Checkpoint**: 四视图完整、联动、流畅——US1+US2 独立可测
 
@@ -188,7 +188,7 @@ Tauri 单应用 + Rust workspace（见 plan.md 结构决策）：
 **Purpose**: 双平台冒烟、性能封口、无障碍与发布质量
 
 - [X] T058 [P] Windows E2E 冒烟：`tests/e2e/wdio.conf.ts` + `tests/e2e/smoke.spec.ts`（quickstart 场景 1/3/5/6/8/9/11 脚本化）+ CI 接 tauri-driver——research.md R8
-- [X] T059 [P] macOS 场景自检 harness：`src-tauri/src/selftest.rs`（`--selftest` 参数驱动同一场景清单、退出码报告，feature gate）+ `package.json` `smoke:mac` script + CI 接入
+- [X] T059 [P] macOS 场景自检 harness：`src-tauri/src/selftest.rs`（`--selftest` 参数驱动同一场景清单、退出码报告，feature gate）+ `package.json` `smoke` script + CI 接入
 - [X] T060 [P] 冷启动预算：`scripts/measure-startup.mjs`（20 次取 P95 ≤2s，双平台 CI 探针）+ 按测量结果做懒加载优化（涉及 `src/app/main.tsx` 启动路径）——SC-003
 - [X] T061 键盘可达性收口：`src/app/shortcuts.ts` 全表补齐（视图切换/搜索/编辑/撤销/导出）+ 快捷键速查对话框 `src/panels/ShortcutsHelp.tsx` + 面板 Tab 焦点顺序审查——宪法 III
 - [X] T062 [P] 打包与体积：`src-tauri/tauri.conf.json` bundle 配置 + `src-tauri/icons/` 应用图标 + CI 安装包体积断言 ≤25MB + macOS universal 目标构建
@@ -280,3 +280,5 @@ Task: "T021 大纲编辑器面板 in src/panels/OutlineEditor.tsx"
   共享场景清单（`pnpm smoke`）。
 - 规格之外新增：导入图表（截图 OCR / archify HTML / Mermaid / MDX）、高精度 OCR 模型
   按需下载、品牌升级为 Sumery Pyxis、宣传站点与发布自动化。详见 README 与 HANDOVER。
+- **T033** 的性能夹具位于 `crates/mcm-core/fixtures/perf/`（基准从这里读）；
+  Makefile 的 `fixtures` 目标仍写根 `fixtures/`，见审计待确认项。

@@ -28,8 +28,8 @@ const version = "v0.2.0";
 
 // 全部取自仓库内已验证的实测结果，不写没有依据的数字。
 const facts = [
-  { value: "23 ms", label: "冷启动 P95", note: "预算 2 s" },
-  { value: "12.0 MB", label: "安装包体积（.dmg）", note: "预算 25 MB" },
+  { value: "5.5 ms", label: "冷启动 P95", note: "macOS；预算 2 s" },
+  { value: "14.9 MB", label: "安装包体积（.dmg）", note: "预算 25 MB" },
   { value: "22 ms", label: "5000 任务解析 + 校验", note: "预算 200 ms" },
   { value: "562", label: "自动化测试", note: "Rust 458 · 前端 104" },
   { value: "11 项", label: "端到端场景", note: "双平台执行，含截图导入" },
@@ -54,7 +54,7 @@ const importOutline = `- Consul #t1 <-t8
 // 同一张 2522×878 截图、26 段文字上的实测。
 const ocrModels = [
   { name: "快速（默认）", model: "PP-OCRv6 tiny", get: "内置", speed: "约 0.3 秒", accuracy: "23/26 完全正确" },
-  { name: "高精度", model: "PP-OCRv6 small", get: "按需下载 21.2 MB", speed: "约 0.7 秒", accuracy: "26/26 完全正确" },
+  { name: "高精度", model: "PP-OCRv6 small", get: "按需下载 20.2 MiB（21.2 MB）", speed: "约 0.7 秒", accuracy: "26/26 完全正确" },
 ];
 
 // 截图由 scripts/capture-screens.mjs 生成：场景数据出自 mcm-core，
@@ -138,8 +138,9 @@ const outline = `%mcm 1
         </div>
         <p class="cta-note">当前版本 {version}：提供 macOS <code>.dmg</code> 与 Windows <code>.exe</code> 安装包，附 SHA256 校验和。</p>
         <p class="cta-note">
-          Pyxis 原名 MCM，{version} 起改名。已装旧版的直接装新版即可：规划文件、最近打开和 OCR 模型照常读取，
-          只有浅色 / 深色主题要重选一次；旧的 MCM 可以删掉。
+          Pyxis 原名 MCM；当前 Release {version} 仍是 MCM 命名，下一次发版起改为 Sumery Pyxis。
+          旧版可以直接卸载再装新版：规划文件、最近打开和 OCR 模型照常读取，
+          只有浅色 / 深色主题要重选一次。
         </p>
       </section>
 
@@ -367,7 +368,7 @@ const outline = `%mcm 1
           </li>
           <li>
             <strong>校验会指出问题在哪。</strong>
-            13 条规则覆盖循环依赖、日期冲突、悬空引用等；报错带位置与完整路径。
+            12 条规则覆盖循环依赖、日期冲突、悬空引用等；报错带位置与完整路径。
           </li>
           <li>
             <strong>性能是可回归的门槛。</strong>

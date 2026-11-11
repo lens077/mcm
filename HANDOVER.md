@@ -1,4 +1,4 @@
-# MCM 交接文档
+# Sumery Pyxis 交接文档
 
 面向接手这个项目的开发者。读完这份文档你应该能：跑起来、看懂架构为什么这样设计、
 知道哪些地方**尚未验证**、以及从哪里继续。
@@ -106,7 +106,7 @@ IDE 里也能过。
 crates/mcm-core/         ← 一切"规划是什么"的判断都在这里
   model/                 实体：Plan / Task / Dependency / Milestone
   outline/               解析 ↔ 序列化（同一套文法）
-  validate/              13 条规则 + 时间推导
+  validate/              12 条规则 + 时间推导
   layout/                四种布局算法
   scene/                 SceneGraph 投影
   edit/                  封闭命令集 + 撤销日志
@@ -257,6 +257,10 @@ make release-watch        # 跟踪构建
 `Cargo.toml` 的 `[workspace.package]`、`src-tauri/tauri.conf.json` 与根 `package.json`。
 `Cargo.lock` 交给 `cargo update -w` 刷新。
 
+> ⚠️ 已知缺陷：`make release` 的 `git add` 仍只包含前三个文件，未包含 `package.json`。
+> 修复前跑 `make release` 会在提交后留下未提交的 `package.json` 改动，下一次发版会被
+> 干净工作区检查拦下。详见审计结论的 P0 项。
+
 产出：`.dmg`（macOS）、`.msi` 与 NSIS `.exe`（Windows），附 `SHA256SUMS`。
 
 两个实现上的坑，改动时注意：
@@ -314,7 +318,7 @@ node scripts/measure-startup.mjs      # 冷启动 P95 ≤ 2s
 node scripts/check-bundle-size.mjs    # 安装包 ≤ 25MB
 
 # 造性能夹具
-cargo run -p mcm-core --bin gen_fixture -- 1000 fixtures/perf/plan-1000.mcm
+cargo run -p mcm-core --bin gen_fixture -- 1000 crates/mcm-core/fixtures/perf/plan-1000.mcm
 ```
 
 ---
@@ -327,7 +331,8 @@ cargo run -p mcm-core --bin gen_fixture -- 1000 fixtures/perf/plan-1000.mcm
 
 **已验证**：VSDX 在 GroupDocs（Aspose 内核）在线查看器中渲染正确——4 个任务矩形、
 3 条依赖箭头、1 条里程碑关联箭头、菱形里程碑、完成态填充，全部到位，无重叠。
-XMind 已由项目所有者在真实 XMind 中确认可用。
+XMind 已由项目所有者在真实 XMind 中确认可用（口头记录；`release-checklist` 1.x 尚无
+书面勾选，正式发布前仍需补记录）。
 
 **仍未验证**：
 - **Visio 桌面版**：能否无修复提示打开、**拖动形状时连线是否跟随**。
@@ -339,15 +344,18 @@ XMind 已由项目所有者在真实 XMind 中确认可用。
 
 ### 6.2 Windows 平台
 
-CI 的 windows-latest 全程通过（编译、458 测试、打包、场景冒烟、体积与冷启动
-预算），`.msi` 与 NSIS `.exe` 已真实产出并随每次发版发布。
+CI 的 windows-latest 全程通过（编译、458 测试、打包、场景冒烟、体积与冷启动预算）。
+当前 CI 实测（2026-10-25，run 40168966544）：冷启动 P95 macOS 5.5 ms / Windows 15.2 ms；
+安装包 macOS `.dmg` 14.9 MB（`.app` 22.3 MB），Windows `.msi` 13.3 MB、NSIS `.exe` 11.4 MB。
+其中 NSIS `.exe` 已随 v0.2.0 发布；`.msi` 只在 CI 产出，尚未进入任何 Release。
 
 仍未做的是**真人在 Windows 桌面上实际使用**：
 
 - WebDriver 套件（`.github/workflows/e2e-windows.yml`，手动触发）：已写好但
-  从未运行，wdio 依赖也未进主依赖树；首次跑很可能需要调整选择器与超时
-- `pnpm tauri build` 的 Windows 产物与 `.msi` 体积（图标已补齐，但 `.msi`
-  从未实际产出过）
+  从未运行（`gh run list --workflow=e2e-windows.yml` 无记录），wdio 依赖也未进
+  主依赖树；首次跑很可能需要调整选择器与超时
+- 在真机上安装并运行 `.msi` / `.exe`：CI 只验证了构建与体积，安装、首次启动、
+  文件关联都还没人走过
 
 ### 6.3 CI
 
@@ -454,9 +462,9 @@ specs/001-project-planning-tool/
   research.md                        11 项技术决策及其理由（含被否决的方案）
   research-xmind.md                  XMind 格式调研（官方生成器源码级）
   research-vsdx.md                   VSDX 格式调研（MS-VSDX + 真实文件解剖）
-  data-model.md                      实体、13 条校验规则、编辑命令集
+  data-model.md                      实体、12 条校验规则、编辑命令集
   contracts/                         5 份契约 ← 改对应模块前必读
-  quickstart.md                      环境、命令、11 个验证场景
+  quickstart.md                      环境、命令、13 个验证场景
   tasks.md                           63 个任务的实现记录
   release-checklist.md               发布前人工验收清单
 ```

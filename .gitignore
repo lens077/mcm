@@ -14,3 +14,7 @@ Thumbs.db
 
 # TypeScript 增量编译缓存：随每次构建变化，不入版本库
 *.tsbuildinfo
+
+# Measure 校验器的取证产物：每次 lint 重新生成，不入版本库
+site/measure-evidence/
+site/measure-render-1.json

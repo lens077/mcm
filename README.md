@@ -12,9 +12,11 @@
 > 从 v0.2.0 及更早的 MCM 升级：新版本是另一个应用（`Sumery Pyxis.app` / 开始菜单「Sumery」文件夹），
 > 装好后可以删掉旧的 MCM。规划文件、最近打开记录与下载的 OCR 模型都在 `~/.config/mcm`，
 > 新版本照常读取；只有浅色 / 深色主题需要重新选一次。
+> **注意**：当前最新 Release（v0.2.0）仍是 MCM 命名；Sumery Pyxis 的构建产物已在 CI 产出，
+> 发版后才会出现在下载页。
 
 > 状态：功能实现完整（63/63 计划任务），自动化质量门全绿。
-> 两种导出的真实互操作性与 Windows 平台尚待人工验证 —— 见 [HANDOVER.md](./HANDOVER.md) §6。
+> Visio 的拖动粘连、两种格式的二次保存，以及 Windows 实机使用尚待人工验证 —— 见 [HANDOVER.md](./HANDOVER.md) §6。
 
 ## 它解决什么
 
@@ -51,7 +53,7 @@
 | 模型 | 获取方式 | 速度（2522×878 截图） | 准确度（26 段文字） |
 |------|----------|------------------------|---------------------|
 | **快速**（默认）PP-OCRv6 tiny | 内置，开箱即用 | 约 0.3 秒 | 23/26 完全正确，错误只在大小写和标点 |
-| **高精度** PP-OCRv6 small | 首次使用时点击下载，21.2 MB | 约 0.7 秒 | 26/26 |
+| **高精度** PP-OCRv6 small | 首次使用时点击下载，20.2 MiB（21.2 MB） | 约 0.7 秒 | 26/26 |
 
 高精度模型不打进安装包，以免超出 25 MB 体积预算。只有你点击「下载」时才会联网：
 先从 ModelScope 下载，失败时改用 GitHub，下载后校验 SHA-256，不符就拒绝使用。
@@ -97,7 +99,7 @@ pnpm tauri dev
 
 | 层 | 选型 | 说明 |
 |----|------|------|
-| 桌面壳 | Tauri 2.11 | `.dmg` 12.0 MB，冷启动 P95 23 ms |
+| 桌面壳 | Tauri 2.11 | `.dmg` 14.9 MB，冷启动 P95 5.5 ms（macOS；Windows 15.2 ms） |
 | 核心 | Rust | 解析、校验、布局、导出全在这里；前端不持有模型状态 |
 | 前端 | React 19 + TypeScript strict | Canvas 2D 自研渲染器，1000 任务保持流畅 |
 | 导入 | rten + PaddleOCR PP-OCRv6 | 纯 Rust 推理，离线；HTML 解析复用 html5ever |
@@ -113,8 +115,8 @@ CI 在 macOS + Windows 双平台执行，全部为合入门槛：
 | Clippy `-D warnings` | 零警告 |
 | 性能预算（7 项） | 全部达标 |
 | 端到端场景 | 11/11 |
-| 冷启动 P95 | 23 ms（预算 2000 ms） |
-| 安装包体积 | `.dmg` 12.0 MB（预算 25 MB） |
+| 冷启动 P95 | 5.5 ms（macOS）/ 15.2 ms（Windows），预算 2000 ms |
+| 安装包体积 | `.dmg` 14.9 MB（`.app` 22.3 MB；预算 25 MB） |
 
 ## 网站
 
@@ -123,7 +125,8 @@ https://mcm.apikv.com
 ## 下载
 
 [Releases](https://github.com/lens077/mcm/releases) 提供 macOS（`.dmg`）与
-Windows（`.msi` / `.exe`）安装包，附 `SHA256SUMS` 可校验。
+Windows（NSIS `.exe`）安装包，附 `SHA256SUMS` 可校验。CI 同时产出 `.msi`（13.3 MB），
+但当前 v0.2.0 Release 未上传。
 发版由 `make release` 触发（递增版本 → 提交 → 打标签）；普通推送只跑 CI，不产生版本。
 
 ## 文档

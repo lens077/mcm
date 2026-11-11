@@ -1,6 +1,6 @@
 # Sumery Pyxis 官网
 
-Astro 7 静态站点，产物约 24 KB。产品原名 MCM，2026-09-30 改名 Sumery Pyxis（罗盘座）；域名 `mcm.apikv.com` 不改。
+Astro 7 静态站点，HTML+CSS 约 29 KB；含产品截图后 `site/dist` 约 4.4 MB。产品原名 MCM，2026-09-30 改名 Sumery Pyxis（罗盘座）；域名 `mcm.apikv.com` 不改。
 页眉品牌标记、配色与页脚按 Sumery 品牌系统（`work/docs/brand/DESIGN.md` §4、§3、§6）；
 `public/favicon-{light,dark}.png` / `favicon.png` 由 Libra 仓库 `tools/brand-icon/install.sh pyxis` 装入。发版后同步 `index.astro` 顶部的 `version`。
 
@@ -17,9 +17,9 @@ make site-preview   # 预览构建产物
 ```
 
 `site/` 自成一个 pnpm 工作区（见 `pnpm-workspace.yaml`），与仓库根解耦。
-**不要把它并入根工作区**：Astro 依赖会写进根 `pnpm-lock.yaml`，而该文件在
-release 工作流的触发白名单内——改一次落地页就会平白发一个安装包毫无变化的
-新版本。
+**不要把它并入根工作区**：Astro 依赖会写进根 `pnpm-lock.yaml`，增加根安装面与
+体积。release 只在推 `vX.Y.Z` 标签时触发，改站点本来就不会误发版本，但两个
+依赖图仍应保持分开。
 
 ## 一份代码，两处部署
 
