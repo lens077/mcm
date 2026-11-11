@@ -1,4 +1,7 @@
 ---
+// 顺序有意义：measure.css 是第一个引入的样式表，它的 @layer measure; 声明把
+// 中文排版基础样式排在所有层之前，后面 tokens.css 与页面内联样式都会覆盖它。
+import "../styles/measure.css";
 import "../styles/tokens.css";
 
 // 站点是纯静态的，这些常量随发布一起更新即可。
@@ -212,7 +215,7 @@ const outline = `%mcm 1
             </dl>
             <p class="hint">
               把 <code>&lt;-t3</code> 改成 <code>&lt;-t6</code> 造一个环，
-              问题面板会给出完整环路径，而不是只说「有循环」。
+              问题面板会给出完整环路径，而不是只说“有循环”。
             </p>
           </div>
         </div>
@@ -274,7 +277,7 @@ const outline = `%mcm 1
               </tbody>
             </table>
             <p class="degrade">
-              高精度模型不打进安装包，只在你点「下载」时联网：先 ModelScope、再 GitHub，
+              高精度模型不打进安装包，只在你点“下载”时联网：先 ModelScope、再 GitHub，
               下载后校验 SHA-256，不符就拒绝使用。切换模型只影响文字，结构识别不变。
             </p>
           </div>
@@ -372,7 +375,7 @@ const outline = `%mcm 1
           </li>
           <li>
             <strong>性能是可回归的门槛。</strong>
-            基准测试写死预算，超了直接失败，不靠"感觉还行"。
+            基准测试写死预算，超了直接失败，不靠“感觉还行”。
           </li>
           <li>
             <strong>撤销基于逆命令而非快照。</strong>
@@ -449,7 +452,8 @@ const outline = `%mcm 1
       }
       .brand-kicker {
         color: var(--ink-muted);
-        font: 500 10.5px/1.2 var(--font-mono);
+        /* 中文不小于 12px（T11）；等宽栈已在 --font-mono 里补了中文字体 */
+        font: 500 12px/1.2 var(--font-mono);
         letter-spacing: 0.12em;
         white-space: nowrap;
       }
@@ -486,15 +490,18 @@ const outline = `%mcm 1
       .eyebrow {
         margin: 0 0 var(--space-4);
         color: var(--signal);
-        font: 600 13px/1 var(--font-mono);
+        /* 正文不小于 14px（T11），行高 1.6 起（T06）：窄屏折行时不会挤成两行 */
+        font: 600 14px/1.6 var(--font-mono);
         letter-spacing: 0.06em;
+        max-width: 36em;
       }
       h1 {
         margin: 0 0 var(--space-6);
         font-family: var(--font-display);
         font-size: clamp(38px, 6.2vw, 68px);
-        line-height: 1.08;
-        letter-spacing: -0.02em;
+        /* 中文标题行高 1.2、字距 0：汉字没有字间留白，负字距会挤在一起（T07） */
+        line-height: 1.2;
+        letter-spacing: 0;
       }
       .lede {
         margin: 0 0 var(--space-8);
@@ -538,8 +545,9 @@ const outline = `%mcm 1
       }
       .cta-note {
         margin: var(--space-4) 0 0;
-        font-size: 13px;
+        font-size: 14px;
         color: var(--ink-muted);
+        max-width: 36em;
       }
 
       .facts {
@@ -576,7 +584,7 @@ const outline = `%mcm 1
         margin: 0 0 var(--space-4);
         font-family: var(--font-display);
         font-size: clamp(26px, 3.4vw, 36px);
-        letter-spacing: -0.01em;
+        letter-spacing: 0;
       }
       h3 {
         margin: 0 0 var(--space-2);
@@ -763,10 +771,20 @@ const outline = `%mcm 1
         background: var(--surface-raised);
       }
       .degrade {
-        font-size: 13.5px;
+        font-size: 14px;
         padding-top: var(--space-3);
         border-top: 1px solid
           color-mix(in srgb, var(--line) 55%, transparent);
+      }
+
+      /* 行长上限 36em（T05：正文每行 28–40 字）。当前栅格列宽都小于 36em，
+         这条规则不改变现有版式，只是把上限写死，避免以后加宽容器时行长失控。 */
+      .two-col p,
+      .card p,
+      .hint,
+      .views p,
+      .degrade {
+        max-width: 36em;
       }
 
       .plain {
@@ -792,6 +810,9 @@ const outline = `%mcm 1
       .closing p {
         color: var(--ink-muted);
         margin: 0 0 var(--space-6);
+        /* 居中段落同样限行长：1120px 整行会有 70 个字 */
+        max-width: 36em;
+        margin-inline: auto;
       }
       .closing .cta {
         justify-content: center;

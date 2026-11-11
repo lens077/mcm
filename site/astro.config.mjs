@@ -20,5 +20,9 @@ export default defineConfig({
   build: {
     // 生成 about/index.html 而非 about.html，静态服务器无需额外重写规则
     format: "directory",
+    // 单页站点：把 ~11 KB 的 CSS 内联进 HTML，省掉一次阻塞请求。
+    // 同时让 measure-cjk 能读到样式——它按路径跳过 _astro/ 下的外链 CSS，
+    // 外链时所有排版规则都会按浏览器默认值误判。改回外链只需删掉这一行。
+    inlineStylesheets: "always",
   },
 });

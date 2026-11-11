@@ -1,0 +1,30 @@
+@layer measure;
+/* 分寸 · Measure 基础样式（skills/measure/assets/measure.css，v0.1.0）。
+   全部放在 measure 层里：页面上任何不分层的样式，以及后声明的层，都会覆盖它。
+   第一行的 @layer measure; 让这一层排在所有层之前——tokens.css 与页面内联样式
+   都是不分层的，优先级高于这里的选择器（:where() 的选择器权重为 0）。 */
+@layer measure {
+  :where(:lang(zh)) {
+    line-break: strict;                    /* 广泛可用；写在每个中文元素上，中英混排页面也生效 */
+    font-synthesis-style: none;            /* 中文不出假斜体；西文真斜体不受影响 */
+    text-emphasis-position: under right;   /* 中文着重号在字下方 */
+  }
+
+  :where(:lang(zh)) :where(p, li) {
+    line-height: 1.75;
+  }
+
+  :where(:lang(zh)) :where(h1, h2, h3) {
+    line-height: 1.3;
+  }
+
+  /* 行长约束只在显式标记的正文容器里生效，避免挤坏卡片和表格 */
+  .measure-prose {
+    max-width: 36em;
+  }
+
+  /* 实现里的初始值是 no-autospace，必须显式开启 */
+  @supports (text-autospace: normal) {
+    :where(:lang(zh)) { text-autospace: normal; }
+  }
+}

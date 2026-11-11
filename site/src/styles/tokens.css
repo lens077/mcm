@@ -2,11 +2,18 @@
    落地页只取其中用得到的部分，并补了排版所需的尺度。 */
 
 :root {
-  --font-display: "Avenir Next", "Futura", sans-serif;
+  /* 字体栈按「先西文、再中文、最后通用族」排列，且每个栈都含中文字体。
+     Avenir Next、JetBrains Mono 授权表未收录，只按名字调用系统字体，不自托管；
+     思源黑体（Source Han Sans SC）与 Noto Sans SC 是 🟢 可嵌入档。 */
+  --font-display:
+    "Avenir Next", "Futura", "Source Han Sans SC", "Noto Sans SC",
+    "PingFang SC", sans-serif;
   --font-body:
-    "Source Han Sans SC", "PingFang SC", -apple-system, BlinkMacSystemFont,
-    sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+    "Source Han Sans SC", "Noto Sans SC", "PingFang SC", -apple-system,
+    BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+  --font-mono:
+    "JetBrains Mono", "SFMono-Regular", ui-monospace, "Noto Sans SC",
+    "PingFang SC", monospace;
 
   --surface: #fffdf7;
   --surface-raised: #ffffff;
