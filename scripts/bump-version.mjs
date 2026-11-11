@@ -2,6 +2,10 @@
 // 递增版本号，同步写入所有声明版本的位置。
 //
 //   node scripts/bump-version.mjs [patch|minor|major] [--dry-run]
+//   node scripts/bump-version.mjs --check
+//
+// --check 只读：校验三处声明已经是同一个版本（不一致则非零退出），
+// 发版流程用它做前置/写入后的断言，不碰任何文件。
 //
 // 版本在三处声明，必须一起改，否则 tauri 打出来的包名与 crate 版本会对不上：
 //   - Cargo.toml          [workspace.package] version
@@ -21,6 +25,7 @@ const LEVELS = new Set(["patch", "minor", "major"]);
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const checkOnly = args.includes("--check");
 const level = args.find((arg) => LEVELS.has(arg)) ?? "patch";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
@@ -73,7 +78,6 @@ function writeCargoVersion(text, from, to) {
 
 const cargoText = readFileSync(cargoPath, "utf8");
 const current = readCargoVersion(cargoText);
-const next = nextVersion(current, level);
 
 const tauriText = readFileSync(tauriPath, "utf8");
 const tauri = JSON.parse(tauriText);
@@ -92,6 +96,14 @@ if (packageJson.version !== current) {
       "请先手工对齐再递增。",
   );
 }
+
+if (checkOnly) {
+  process.stderr.write(`三处版本一致：${current}\n`);
+  process.stdout.write(`${current}\n`);
+  process.exit(0);
+}
+
+const next = nextVersion(current, level);
 
 if (!dryRun) {
   writeFileSync(cargoPath, writeCargoVersion(cargoText, current, next));

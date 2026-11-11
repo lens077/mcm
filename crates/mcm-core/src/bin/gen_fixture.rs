@@ -1,7 +1,7 @@
 //! Generates deterministic performance fixtures.
 //!
 //! ```text
-//! cargo run -p mcm-core --bin gen_fixture -- 1000 fixtures/perf/plan-1000.mcm
+//! cargo run -p mcm-core --bin gen_fixture -- 1000 crates/mcm-core/fixtures/perf/plan-1000.mcm
 //! ```
 //!
 //! The output is a valid canonical outline so it doubles as a golden document
@@ -71,7 +71,7 @@ fn main() {
         .unwrap_or(1000);
     let path = args
         .next()
-        .unwrap_or_else(|| "fixtures/perf/plan-1000.mcm".to_owned());
+        .unwrap_or_else(|| "crates/mcm-core/fixtures/perf/plan-1000.mcm".to_owned());
 
     let text = generate(count);
     if let Some(parent) = std::path::Path::new(&path).parent() {

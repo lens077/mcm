@@ -147,9 +147,9 @@ ci: gate bundle check-bundle measure-startup ## 完整复现 CI（含打包与�
 
 # ─────────────────────────────── 工具 ───────────────────────────────
 
-fixtures: ## 重新生成性能测试夹具
-	cargo run -p mcm-core --bin gen_fixture -- 1000 fixtures/perf/plan-1000.mcm
-	cargo run -p mcm-core --bin gen_fixture -- 5000 fixtures/perf/plan-5000.mcm
+fixtures: ## 重新生成性能测试夹具（bench 从这里读取）
+	cargo run -p mcm-core --bin gen_fixture -- 1000 crates/mcm-core/fixtures/perf/plan-1000.mcm
+	cargo run -p mcm-core --bin gen_fixture -- 5000 crates/mcm-core/fixtures/perf/plan-5000.mcm
 
 # CI 是干净检出，本地却常有残留的 dist/，两者行为会不一致。
 # 这个目标专门复现干净检出，用来验证构建顺序没被破坏。
@@ -200,6 +200,10 @@ bump-preview: ## 预演版本递增，不改任何文件（BUMP=patch|minor|majo
 # 发版 = 递增版本 + 提交 + 打标签 + 推送。
 # 推送标签才会触发 release 工作流构建 macOS 与 Windows 安装包。
 # 前置检查从严：发版是对外动作，出错的代价比多等一次高。
+#
+# bump-version 会同时写 Cargo.toml / tauri.conf.json / package.json 三处，
+# 提交范围必须覆盖全部三处；漏掉任何一处，标签指向的提交就与工作区不一致。
+# 打标签前还会断言三处版本已一致（--check），不一致直接中止。
 release: ## 发版（BUMP=patch|minor|major，默认 patch）
 	@command -v gh >/dev/null || { echo "需要 gh CLI：brew install gh"; exit 1; }
 	@git diff --quiet && git diff --cached --quiet || \
@@ -207,13 +211,21 @@ release: ## 发版（BUMP=patch|minor|major，默认 patch）
 	@git fetch -q origin main && \
 	 [ "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" ] || \
 	 { echo "本地与 origin/main 不一致，先 git pull --rebase"; exit 1; }
-	@new=$$(node scripts/bump-version.mjs $(BUMP)) && \
-	 cargo update -w >/dev/null 2>&1 && \
-	 git add Cargo.toml Cargo.lock src-tauri/tauri.conf.json && \
-	 git commit -q -m "chore(release): v$$new" && \
-	 git tag -a "v$$new" -m "v$$new" && \
-	 git push -q origin main && \
-	 git push -q origin "v$$new" && \
+	@node scripts/bump-version.mjs --check || \
+	 { echo "三处版本声明不一致，中止发版"; exit 1; }
+	@set -e; \
+	 new=$$(node scripts/bump-version.mjs $(BUMP)); \
+	 checked=$$(node scripts/bump-version.mjs --check); \
+	 [ "$$new" = "$$checked" ] || { \
+	   echo "版本写入后不一致：期望 $$new，实际 $$checked，中止发版"; exit 1; }; \
+	 cargo update -w >/dev/null 2>&1; \
+	 git add Cargo.toml Cargo.lock src-tauri/tauri.conf.json package.json; \
+	 git diff --quiet || { \
+	   echo "bump 写了未纳入提交的文件，检查 git add 范围；已中止，未打标签"; exit 1; }; \
+	 git commit -q -m "chore(release): v$$new"; \
+	 git tag -a "v$$new" -m "v$$new"; \
+	 git push -q origin main; \
+	 git push -q origin "v$$new"; \
 	 echo "已发布 v$$new —— 用 make release-watch 跟踪构建"
 
 releases: ## 列出已发布版本

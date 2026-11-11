@@ -77,7 +77,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            platform: macos
+            # 双架构 DMG：macos-latest 是 arm64 宿主，只打本机架构会漏掉 Intel 用户
+            bundle: pnpm build:mac-universal
+          - os: windows-latest
+            platform: windows
+            bundle: pnpm bundle
     runs-on: ${{ matrix.os }}
     steps:
       # 检出带新版本号的提交，产物名才与 Release tag 一致
@@ -95,6 +102,11 @@ jobs:
         with:
           key: release-${{ matrix.os }}
 
+      # universal-apple-darwin 需要两个标准库同时在场
+      - name: Add macOS universal targets
+        if: matrix.platform == 'macos'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
       - run: pnpm install --frozen-lockfile
 
       # 与 ci.yml 同因：generate_context! 编译期嵌入前端产物
@@ -102,7 +114,7 @@ jobs:
         run: pnpm build
 
       - name: Bundle installer
-        run: pnpm bundle
+        run: ${{ matrix.bundle }}
 
       # 发布前最后一道闸：产物本身能跑通共享场景清单。
       # release 二进制已由上一步构建，这步几乎不额外耗时。
@@ -114,7 +126,8 @@ jobs:
         run: |
           mkdir -p out
           # bundle.targets 为 "all"：macOS 出 .dmg，Windows 同时出 .msi 与 NSIS .exe。
-          # 按后缀收集而非写死单一路径，少一种也不会静默漏掉。
+          # 这里只负责按后缀搬运；「该有的一种都不能少」交给下一步断言，
+          # 否则少一种产物会静默通过（v0.2.0 就丢了 .msi）。
           # 排除 rw.<pid>.*.dmg —— 那是 bundle_dmg.sh 的读写中间映像，非交付物。
           found=0
           while IFS= read -r file; do
@@ -132,6 +145,12 @@ jobs:
           fi
           echo "收集到 $found 个安装包："
           ls -la out
+
+      # 平台产物清单的硬断言：Windows 要 .msi + NSIS .exe；
+      # macOS 要覆盖 Intel 与 Apple Silicon（universal，或 aarch64 与 x64 各一份）。
+      - name: Assert installers
+        shell: bash
+        run: node scripts/assert-artifacts.mjs --platform ${{ matrix.platform }} --dir out
 
       - uses: actions/upload-artifact@v7
         with:
